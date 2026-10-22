@@ -176,12 +176,10 @@ function snpTree(sig) {
 function lineageCard(sig, lin) {
   const men = menOf(lin), ts = testersOfLin(lin);
   const regions = presence(men).map(r => esc(r.region));
-  /* The SNPs that began in men of this line, oldest first. */
-  const snps = men.flatMap(m => m.snps).sort((a, b) => (yearNum(a.year) || 0) - (yearNum(b.year) || 0));
   return `<div class="anc-card" data-go="lin" data-sig="${esc(sig)}" data-lin="${esc(lin)}">
     <h3>${esc(lin)}</h3>
     <div class="hint">${plural(ts.length, 'tester')} · ${plural(men.length, 'documented man', 'documented men')}</div>
-    ${snps.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${snps.map(s => `<span class="snp-node target" style="font-size:12px;white-space:nowrap">${esc(s.name)}</span>`).join('')}</div>` : ''}</div>`;
+    </div>`;
 }
 
 /* ---------- Migration map ----------
