@@ -1,0 +1,24 @@
+Signature,Lineage,ID,Father ID,Name,Birth year,Death year,Birth place,Death place,Notes
+Group 3,Henry Barrow (1679-1715),G3-01,G3-19,Thomas Barrow,,,,,Needs research
+Group 3,Henry Barrow (1679-1715),G3-02,G3-01,Henry Barrow,1679,1715,"Prescot, Lancashire, England","Prescot, Lancashire, England",
+Group 3,Henry Barrow (1679-1715),G3-03,G3-02,Henry Barrow,1716,1768,"Liverpool, Lancashire, England","Brunswick County, Virginia",
+Group 3,Henry Barrow (1679-1715),G3-04,G3-03,John Barrow,1753,1828,"Brunswick County, Virginia","Brunswick County, Virginia",
+Group 3,Henry Barrow (1679-1715),G3-05,G3-04,Jesse Barrow,1793,1850,"Henry County, Virginia","Henry County, Virginia",
+Group 3,Henry Barrow (1679-1715),G3-06,G3-05,John Daniel Barrow,1821,1854,"Henry County, Virginia","Henry County, Virginia",R-Y91124 formed in him
+Group 3,Henry Barrow (1679-1715),G3-07,G3-06,Benjamin Franklin Barrow I,1845,1927,"Henry County, Virginia","Henry County, Virginia",
+Group 3,Henry Barrow (1679-1715),G3-08,G3-06,Absolom Flournoy Barrow,1849,1936,"Henry County, Virginia","Rockingham County, North Carolina",
+Group 3,Thomas Barrow (1638-1684),G3-19,,Father of Thomas Barrow and William Barrow (generation 10),,,,,Needs research; R-Y86591 formed in him
+Group 3,Thomas Barrow (1638-1684),G3-20,G3-19,William Barrow,c. 1600,,,,
+Group 3,Thomas Barrow (1638-1684),G3-21,G3-20,Thomas Barrow,1638,1684,"Warrington, Lancashire, England","Surry County, Virginia",R-FT249996 formed in him
+Group 3,Thomas Barrow (1638-1684),G3-22,G3-21,Thomas Barrow,1663,1761,"Surry County, Virginia","Southampton County, Virginia",
+Group 3,Thomas Barrow (1638-1684),G3-23,G3-22,Thomas Barrow,1690,1763,"Southampton County, Virginia","Onslow County, North Carolina",Death year is 1763 for two testers and 1762 for one; check
+Group 3,Thomas Barrow (1638-1684),G3-24,G3-23,James Barrow,1757,1828,"Edgecombe County, North Carolina","Baldwin County, Georgia",
+Group 3,Thomas Barrow (1638-1684),G3-25,G3-24,David Crenshaw Barrow,1815,1899,Georgia,Georgia,
+Group 3,Thomas Barrow (1638-1684),G3-26,G3-25,Thomas Augustine Barrow,1843,1897,"Mitchell County, Georgia","Mitchell County, Georgia",
+Group 3,Thomas Barrow (1638-1684),G3-27,G3-25,Middleton Pope Barrow,1839,1903,Georgia,Georgia,
+Group 3,Thomas Barrow (1638-1684),G3-30,G3-21,Edmund Barrow,1671,,"Surry County, Virginia",,
+Group 3,Thomas Barrow (1638-1684),G3-31,G3-30,William Barrow,1695,1758,"Southampton County, Virginia","Edgecombe County, North Carolina",
+Group 3,Thomas Barrow (1638-1684),G3-32,G3-31,William Barrow,1739,1787,"Surry County, Virginia","Edgecombe County, North Carolina",R-FTA49320 formed in him
+Group 3,Thomas Barrow (1638-1684),G3-33,G3-32,Bennet Barrow,1777,1833,North Carolina,"West Feliciana Parish, Louisiana",
+Group 3,Thomas Barrow (1638-1684),G3-34,G3-33,Bennett Barrow,1811,1873,North Carolina,"West Feliciana Parish, Louisiana",
+Group 3,Thomas Barrow (1638-1684),G3-35,G3-34,Nicholas Hall Barrow,1861,1928,"West Feliciana Parish, Louisiana","West Feliciana Parish, Louisiana",

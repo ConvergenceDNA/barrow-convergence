@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Barrow Convergence</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<div class="app">
+		<aside class="sidebar" id="sidebar">
+			<div class="brand" data-go="home">
+				<div class="brand-mark">B</div>
+				<div>
+					<div class="brand-name">Barrow Convergence</div>
+					<div class="brand-sub">Barrow Family Association Y-DNA</div>
+				</div>
+			</div>
+			<div class="side-section" style="padding-bottom:0">
+				<input id="q" class="side-search" type="search" placeholder="Search names, places, years, SNPs…">
+			</div>
+			<nav class="side-section side-nav" id="nav"></nav>
+		</aside>
+
+		<div class="scrim" data-act="close-menu"></div>
+
+		<div class="main-wrap">
+			<header class="topbar">
+				<button class="menu-btn" data-act="open-menu" aria-label="Open menu">&#9776;</button>
+				<div id="crumb" class="crumb"></div>
+			</header>
+			<main id="main" class="main"><p class="muted">Loading the Barrow data…</p></main>
+		</div>
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+	<script src="app.js"></script>
+</body>
+</html>
