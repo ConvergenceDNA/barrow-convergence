@@ -174,12 +174,15 @@ function snpTree(sig) {
     ${roots.length > 1 ? '<p class="hint" style="margin-top:8px">SNPs not yet connected to an older SNP appear as separate trees until their parent SNP is added.</p>' : ''}`;
 }
 function lineageCard(sig, lin) {
-  const men = menOf(lin), first = earliestOf(men), ts = testersOfLin(lin);
-  const snps = [...new Set(ts.map(t => t.snp).filter(Boolean))];
+  const men = menOf(lin), ts = testersOfLin(lin);
+  const regions = presence(men).map(r => esc(r.region));
+  /* The SNPs that began in men of this line, oldest first. */
+  const snps = men.flatMap(m => m.snps).sort((a, b) => (yearNum(a.year) || 0) - (yearNum(b.year) || 0));
   return `<div class="anc-card" data-go="lin" data-sig="${esc(sig)}" data-lin="${esc(lin)}">
     <h3>${esc(lin)}</h3>
-    <div class="hint">${first ? `Earliest dated ancestor: ${esc(first.name)} (${esc(lifeOf(first))})${first.bplace ? ', b. ' + esc(first.bplace) : ''}` : ''}</div>
-    <div class="hint" style="margin-top:8px">${plural(ts.length, 'tester')} · ${plural(men.length, 'documented man', 'documented men')}${snps.length ? ' · ' + snps.map(esc).join(', ') : ''}</div></div>`;
+    ${regions.length ? `<div class="hint">Lived in ${regions.join(' → ')}</div>` : ''}
+    <div class="hint" style="margin-top:6px">${plural(ts.length, 'tester')} · ${plural(men.length, 'documented man', 'documented men')}</div>
+    ${snps.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${snps.map(s => `<span class="snp-node target" style="font-size:12px;white-space:nowrap">${esc(s.name)}</span>`).join('')}</div>` : ''}</div>`;
 }
 
 /* ---------- Migration map ----------
@@ -780,7 +783,17 @@ function render() {
     main.innerHTML = renderHome();
   }
   document.getElementById('nav').innerHTML = renderNav();
+  labelTables(main);
   setupMaps();
+}
+/* On a phone, each table row is shown as a small card: every cell gets its column heading as a label (see style.css). */
+function labelTables(root) {
+  root.querySelectorAll('table.tbl').forEach(t => {
+    const heads = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    if (!heads.length) return;
+    t.classList.add('stack-tbl');
+    t.querySelectorAll('tbody tr').forEach(tr => [...tr.children].forEach((td, i) => { td.dataset.label = heads[i] || ''; }));
+  });
 }
 
 /* ---------- Events ---------- */
@@ -822,7 +835,7 @@ document.addEventListener('input', e => {
   mine[Number(d.mine)][d.f] = e.target.value;
   saveMine();
   const out = document.getElementById('find-out');
-  if (out) out.innerHTML = findResults();
+  if (out) { out.innerHTML = findResults(); labelTables(out); }
 });
 
 /* ---------- Start ---------- */

@@ -390,6 +390,31 @@ details.topic > ul { padding-left: 34px; }
 	h1 { font-size: 24px; }
 }
 
+/* ---------- Phones ---------- */
+@media (max-width: 700px) {
+	/* Tables become a stack of small cards, each value under its column heading. */
+	.stack-tbl thead { display: none; }
+	.stack-tbl, .stack-tbl tbody, .stack-tbl tr, .stack-tbl td { display: block; width: 100% !important; }
+	.stack-tbl tr { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+	.stack-tbl tr:last-child { border-bottom: 0; }
+	.stack-tbl td { border: 0 !important; padding: 3px 0 !important; white-space: normal !important; min-width: 0 !important; background: none !important; }
+	.stack-tbl td:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+	.stack-tbl td:empty { display: none; }
+	/* Family trees and SNP trees: smaller steps so deep lines still fit the screen. */
+	.tree { overflow-x: auto; }
+	.utree { font-size: 14px; }
+	.utree ul { padding-left: 14px; }
+	.utree li { padding-left: 10px; }
+	.utree .snp-node, .utree .anc-node { font-size: 13px; padding: 4px 9px; }
+	.utree ul li::after { top: 20px; width: 12px; }
+	.utree ul li:last-child::before { height: 20px; }
+	.utree .ut-row { gap: 6px; }
+	/* The map, a little shorter so its controls stay on screen. */
+	.mig-map { height: 320px !important; }
+	.hero { padding: 22px; }
+	.card { padding: 16px; }
+}
+
 /* ---------- Print ---------- */
 @media print {
 	body { background: #fff; }
