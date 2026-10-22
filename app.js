@@ -180,8 +180,7 @@ function lineageCard(sig, lin) {
   const snps = men.flatMap(m => m.snps).sort((a, b) => (yearNum(a.year) || 0) - (yearNum(b.year) || 0));
   return `<div class="anc-card" data-go="lin" data-sig="${esc(sig)}" data-lin="${esc(lin)}">
     <h3>${esc(lin)}</h3>
-    ${regions.length ? `<div class="hint">Lived in ${regions.join(' → ')}</div>` : ''}
-    <div class="hint" style="margin-top:6px">${plural(ts.length, 'tester')} · ${plural(men.length, 'documented man', 'documented men')}</div>
+    <div class="hint">${plural(ts.length, 'tester')} · ${plural(men.length, 'documented man', 'documented men')}</div>
     ${snps.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${snps.map(s => `<span class="snp-node target" style="font-size:12px;white-space:nowrap">${esc(s.name)}</span>`).join('')}</div>` : ''}</div>`;
 }
 
@@ -690,11 +689,14 @@ function renderLearn() {
 /* ---------- Pages ---------- */
 function renderHome() {
   const cards = D.sigs.map(sig => {
-    const men = allMen().filter(m => m.sig === sig), first = earliestOf(men);
+    const men = allMen().filter(m => m.sig === sig);
+    /* The signature's origin is the region where its oldest SNP began, or failing that, the earliest region in its records. */
+    const root = D.snps.find(s => s.sig === sig && !D.snps.some(x => x.sig === sig && x.name === s.parent));
+    const origin = root && root.place ? regionOf(root.place) : (presence(men)[0] || {}).region;
     return `<div class="anc-card" data-go="sig" data-sig="${esc(sig)}">
       <h3>${esc(sig)}</h3>
       <div class="hint">${plural(lineagesOf(sig).length, 'lineage')} · ${plural(testersOfSig(sig).length, 'tester')}</div>
-      ${first ? `<div class="hint" style="margin-top:8px">Earliest dated ancestor: ${esc(first.name)} (${esc(lifeOf(first))})${first.bplace ? ', b. ' + esc(first.bplace) : ''}</div>` : ''}</div>`;
+      ${origin ? `<div class="hint" style="margin-top:8px">Origin: ${esc(origin)}</div>` : ''}</div>`;
   }).join('');
   return `<div class="hero">
     <h1>Barrow Y-DNA Lineages</h1>
