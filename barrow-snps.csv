@@ -1,4 +1,7 @@
 Signature,SNP,Parent SNP,Formed in,Formation year,Place,Lineage,Notes
+Group 6,R-FT36460,,G6-01,1693,"Perquimans County, North Carolina",Samuel Barrow (1805-1852),Shared SNP of all Group 6 lines
+Group 6,R-FT36585,R-FT36460,G6-10,1770,North Carolina,Green Barrow (1798-1879),Formed in the father of Green Barrow and John Grey Barrow
+Group 6,R-FTC2492,R-FT36460,G6-30,1800,,Joseph Barrow (1770-1850),
 Group 3,R-Y91124,R-Y86591,G3-06,1821,"Henry County, Virginia",Henry Barrow (1679-1715),
 Group 3,R-Y86591,,G3-19,,"Near Prescot and Warrington, Lancashire, England",Thomas Barrow (1638-1684),Formed in the father of Thomas Barrow and William Barrow (c. 1600); exact birthplace unknown
 Group 3,R-FT249996,R-Y86591,G3-21,1638,"Warrington, Lancashire, England",Thomas Barrow (1638-1684),

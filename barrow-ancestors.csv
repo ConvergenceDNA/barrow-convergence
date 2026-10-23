@@ -1,4 +1,38 @@
 Signature,Lineage,ID,Father ID,Name,Birth year,Death year,Birth place,Death place,Notes
+Group 6,Samuel Barrow (1805-1852),G6-01,,John Barrow,1643,1718,,"Perquimans County, North Carolina",R-FT36460 formed in him; birthplace being researched
+Group 6,Samuel Barrow (1805-1852),G6-02,G6-01,William Barrow,1671,1716,"Perquimans County, North Carolina","Bath County, North Carolina",
+Group 6,Samuel Barrow (1805-1852),G6-03,G6-02,James Barrow,1715,1800,"Pitt County, North Carolina","Pitt County, North Carolina",
+Group 6,Samuel Barrow (1805-1852),G6-04,G6-03,William Barrow,1745,1838,"Pitt County, North Carolina","Hinds County, Mississippi",
+Group 6,Samuel Barrow (1805-1852),G6-05,G6-04,Samuel Barrow,1805,1852,"Pitt County, North Carolina","Gonzales County, Texas",
+Group 6,Samuel Barrow (1805-1852),G6-06,G6-05,Seth Lee Barrow,1837,1907,Mississippi,"Clay County, Texas",
+Group 6,Samuel Barrow (1805-1852),G6-07,G6-06,Samuel D. Barrow,1883,,Texas,,
+Group 6,Green Barrow (1798-1879),G6-10,G6-51,Father of Green Barrow and John Grey Barrow (generation 7),,,,,Needs research; R-FT36585 formed in him; joined to John Barrow (1643-1718) by Y-DNA only (R-FT36460)
+Group 6,Green Barrow (1798-1879),G6-11,G6-10,Green Barrow,1798,1879,North Carolina,"Covington County, Alabama",
+Group 6,Green Barrow (1798-1879),G6-12,G6-11,Son of Green Barrow (generation 5),,,,,Needs research
+Group 6,Green Barrow (1798-1879),G6-13,G6-12,Grandson of Green Barrow (generation 4),,,,,Needs research
+Group 6,John Grey Barrow (1804-1859),G6-15,G6-10,John Grey Barrow,1804,1859,North Carolina,"Covington County, Alabama",
+Group 6,John Grey Barrow (1804-1859),G6-16,G6-15,Jacob Grey Barrow,1823,1895,Florida,"Conecuh County, Alabama",
+Group 6,John Grey Barrow (1804-1859),G6-17,G6-16,Josiah Barrow,,1942,Alabama,"Conecuh County, Alabama",
+Group 6,James Barrow (1772-1868),G6-20,G6-54,James Barrow,1772,1868,North Carolina,"Stewart County, Tennessee",Brick wall; joined to John Barrow (1643-1718) by Y-DNA only (R-FT36460)
+Group 6,James Barrow (1772-1868),G6-21,G6-20,Ervin Barrow,1803,1861,"Stewart County, Tennessee","Stewart County, Tennessee",
+Group 6,James Barrow (1772-1868),G6-22,G6-21,George Barrow,1842,1928,"Trigg County, Kentucky","Stewart County, Tennessee",
+Group 6,John Barrow (1800-1880),G6-25,G6-58,John Barrow,1800,1880,Georgia,"Dent County, Missouri",Brick wall; joined to John Barrow (1643-1718) by Y-DNA only (R-FT36460)
+Group 6,John Barrow (1800-1880),G6-26,G6-25,Robert Franklin Barrow,1859,1941,Mississippi,"Dent County, Missouri",
+Group 6,Joseph Barrow (1770-1850),G6-30,G6-60,Joseph Barrow,1770,1850,North Carolina,"Thomas County, Georgia",Brick wall; joined to John Barrow (1643-1718) by Y-DNA only (R-FT36460)
+Group 6,Joseph Barrow (1770-1850),G6-31,G6-30,John Grey Barrow,1798,1875,North Carolina,"Thomas County, Georgia",
+Group 6,Joseph Barrow (1770-1850),G6-32,G6-31,Joshua Barrow,1827,1910,"Telfair County, Georgia","Cairo, Georgia",
+Group 6,Joseph Barrow (1770-1850),G6-33,G6-32,Joseph Barrow,1849,1914,"Thomas County, Georgia","Barwick, Georgia",
+Group 6,Green Barrow (1798-1879),G6-50,G6-01,Undocumented (generation 9),,,,,Generation not yet documented; brick wall
+Group 6,Green Barrow (1798-1879),G6-51,G6-50,Undocumented (generation 8),,,,,Generation not yet documented; brick wall
+Group 6,James Barrow (1772-1868),G6-52,G6-01,Undocumented (generation 9),,,,,Generation not yet documented; brick wall
+Group 6,James Barrow (1772-1868),G6-53,G6-52,Undocumented (generation 8),,,,,Generation not yet documented; brick wall
+Group 6,James Barrow (1772-1868),G6-54,G6-53,Undocumented (generation 7),,,,,Generation not yet documented; brick wall
+Group 6,John Barrow (1800-1880),G6-55,G6-01,Undocumented (generation 9),,,,,Generation not yet documented; brick wall
+Group 6,John Barrow (1800-1880),G6-56,G6-55,Undocumented (generation 8),,,,,Generation not yet documented; brick wall
+Group 6,John Barrow (1800-1880),G6-57,G6-56,Undocumented (generation 7),,,,,Generation not yet documented; brick wall
+Group 6,John Barrow (1800-1880),G6-58,G6-57,Undocumented (generation 6),,,,,Generation not yet documented; brick wall
+Group 6,Joseph Barrow (1770-1850),G6-59,G6-01,Undocumented (generation 9),,,,,Generation not yet documented; brick wall
+Group 6,Joseph Barrow (1770-1850),G6-60,G6-59,Undocumented (generation 8),,,,,Generation not yet documented; brick wall
 Group 3,Henry Barrow (1679-1715),G3-01,G3-19,Thomas Barrow,,,,,Needs research
 Group 3,Henry Barrow (1679-1715),G3-02,G3-01,Henry Barrow,1679,1715,"Prescot, Lancashire, England","Prescot, Lancashire, England",
 Group 3,Henry Barrow (1679-1715),G3-03,G3-02,Henry Barrow,1716,1768,"Liverpool, Lancashire, England","Brunswick County, Virginia",

@@ -145,7 +145,9 @@ function lineTree(lin) {
   const node = (m, kids) => {
     const places = [m.bplace && `b. ${m.bplace}`, m.dplace && `d. ${m.dplace}`].filter(Boolean).join(' · ');
     const shared = m.lineage !== lin ? `<span class="hint">shared ancestor with the ${esc(m.lineage)} line</span>` : '';
-    const hl = m.id === view.hl ? ' style="outline:3px solid var(--bronze);outline-offset:2px"' : '';
+    /* A generation not yet documented is drawn as an empty dashed box, so the gap in the records shows. */
+    const gap = /^undocumented/i.test(m.name) ? 'background:transparent;color:#6b7780;border:1.5px dashed #b9ad98;' : '';
+    const hl = m.id === view.hl || gap ? ` style="${gap}${m.id === view.hl ? 'outline:3px solid var(--bronze);outline-offset:2px' : ''}"` : '';
     return `<li><div class="ut-row" data-man="${esc(m.id)}"><span class="anc-node"${hl}>${esc(m.name)}</span>${lifeOf(m) ? `<span class="hint">${esc(lifeOf(m))}</span>` : ''}${m.snps.map(s => `${snpTag(s)}<span class="hint">carried by ${plural(testersUnder(m).length, 'tester')}</span>`).join('')}${testerTags(m.testers)}${shared}</div>
       ${places ? `<div class="hint" style="margin:2px 0 0 4px">${esc(places)}</div>` : ''}${kids.length ? `<ul>${kids.map(k => node(k, k.kids.filter(x => x.lineage === lin))).join('')}</ul>` : ''}</li>`;
   };
@@ -163,7 +165,7 @@ function lineTree(lin) {
 /* A short summary of each Y-DNA group, shown above its SNP tree on the home page. */
 const SIG_SUMMARY = {
   'Group 3': 'Group 3 is a Barrow family from Lancashire, England, descended from a man who lived near Prescot and Warrington and carried the SNP R-Y86591. Two of his descendants emigrated to Virginia: Thomas Barrow (1638–1684), born in Warrington, in whom R-FT249996 formed, and Henry Barrow (1716–1768), born in Liverpool. From Virginia their lines spread into North Carolina, Georgia and Louisiana, and newer SNPs formed along the way: R-FTA49320 in Thomas’s branch and R-Y91124 in Henry’s.',
-  'Group 6': 'Group 6 is a Barrow family of colonial North Carolina, descended from John Barrow (1643–1718) of Perquimans County, in whom the SNP R-FT36460 formed. His descendants moved west and south: Samuel Barrow (1805–1852) to Texas, James Barrow (1772–1868) to Tennessee, John Barrow (1800–1880) to Missouri, Green Barrow (1798–1879) and John Grey Barrow (1804–1859) to Alabama, and Joseph Barrow (1770–1850) to Georgia. Newer SNPs formed along the way, such as R-FT36585 in the father of Green and John Grey Barrow, and R-FTC2492 in Joseph Barrow. Several of these lines are linked to John Barrow by Y-DNA alone.'
+  'Group 6': 'Group 6 is a Barrow family of colonial North Carolina, descended from John Barrow (1643–1718) of Perquimans County, in whom the SNP R-FT36460 formed. His descendants moved west and south: Samuel Barrow (1805–1852) to Texas, James Barrow (1772–1868) to Tennessee, John Barrow (1800–1880) to Missouri, Green Barrow (1798–1879) and John Grey Barrow (1804–1859) to Alabama, and Joseph Barrow (1770–1850) to Georgia. Newer SNPs formed along the way, such as R-FT36585 in the father of Green and John Grey Barrow, and R-FTC2492 in Joseph Barrow. All of these lines are linked to John Barrow by Y-DNA alone.'
 };
 /* The home page shows one group's SNP tree at a time; its buttons switch between the groups. */
 function showTree(b) {
@@ -171,18 +173,54 @@ function showTree(b) {
   box.querySelectorAll('[data-tree-body]').forEach(d => { d.hidden = d.dataset.treeBody !== b.dataset.tree; });
   box.querySelectorAll('[data-tree]').forEach(x => { x.style.background = x === b ? 'var(--accent-soft)' : ''; x.style.fontWeight = x === b ? '700' : ''; });
 }
-function snpTree(sig) {
-  const list = D.snps.filter(s => s.sig === sig);
+/* Each tester's SNP path: the SNPs that formed in his ancestors, oldest first. */
+function linePaths(lin) {
+  return testersOfLin(lin).map(t => { const p = []; for (let m = D.men.get(t.gg); m; m = D.men.get(m.father)) p.unshift(...m.snps.map(x => x.name)); return p; }).filter(p => p.length);
+}
+/* The signature's SNP tree, oldest SNP at the top, each with the man it formed in. Given a lineage, only that line's SNPs are drawn. */
+function snpTree(sig, lin) {
+  const only = lin ? new Set(linePaths(lin).flat()) : null;
+  const list = D.snps.filter(s => s.sig === sig && (!only || only.has(s.name)));
   const roots = list.filter(s => !list.some(x => x.name === s.parent));
   if (!roots.length) return '<p class="muted">No SNPs recorded yet.</p>';
+  /* Each lineage is listed under the newest SNP its testers' ancestors carry, so the tree shows which lines each SNP leads to. */
+  const linesAt = new Map();
+  if (!lin) lineagesOf(sig).forEach(l => new Set(linePaths(l).map(p => p[p.length - 1])).forEach(n => linesAt.set(n, (linesAt.get(n) || []).concat(l))));
   const draw = nodes => `<ul>${nodes.map(s => {
     const m = D.men.get(s.formedIn);
     const who = m ? `<span class="anc-node ut-link" data-go="lin" data-sig="${esc(sig)}" data-lin="${esc(m.lineage)}">${esc(m.name)}${lifeOf(m) ? ' (' + esc(lifeOf(m)) + ')' : ''}</span>` : '';
     const when = s.place || '';
-    return `<li><div class="ut-row"><span class="snp-node target">${esc(s.name)}</span>${who ? '<span class="hint">formed in</span>' + who : ''}${when ? `<span class="hint">${esc(when)}</span>` : ''}</div>${s.kids.length ? draw(s.kids) : ''}</li>`;
+    const lines = linesAt.get(s.name) || [];
+    const kids = s.kids.filter(k => list.includes(k));
+    /* The SNP and the man it formed in sit on one row; the place and the lineages it leads to sit beneath, as one neat block. */
+    return `<li><div class="ut-row"><span class="snp-node target">${esc(s.name)}</span>${who ? '<span class="hint">formed in</span>' + who : ''}</div>
+      ${when || lines.length ? `<div style="margin:4px 0 2px 4px">${when ? `<div class="hint">${esc(when)}</div>` : ''}${lines.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${lines.map(l => `<span class="tester-tag" data-go="lin" data-sig="${esc(sig)}" data-lin="${esc(l)}" style="cursor:pointer;margin-left:0">${esc(l)}</span>`).join('')}</div>` : ''}</div>` : ''}${kids.length ? draw(kids) : ''}</li>`;
   }).join('')}</ul>`;
   return `<div class="tree utree">${draw(roots)}</div>
     ${roots.length > 1 ? '<p class="hint" style="margin-top:8px">SNPs not yet connected to an older SNP appear as separate trees until their parent SNP is added.</p>' : ''}`;
+}
+/* A short description of one ancestral line, built from the data: who it descends from, its SNPs, where its men lived,
+   and any generations not yet documented. */
+function lineSummary(sig, lin) {
+  const names = [...new Set(linePaths(lin).flat())];
+  const set = new Map();
+  menOf(lin).forEach(m => { for (let x = m; x && !set.has(x.id); x = D.men.get(x.father)) set.set(x.id, x); });
+  const chain = [...set.values()], gap = m => /^undocumented/i.test(m.name);
+  const top = chain.find(m => !D.men.get(m.father));
+  const fmt = m => esc(nameIn(m)) + (lifeOf(m) ? ` (${esc(lifeOf(m))})` : '');
+  const snps = names.map(n => D.snps.find(s => s.name === n)).filter(Boolean).map(s => { const m = D.men.get(s.formedIn); return `${esc(s.name)}${m ? ', which formed in ' + (m === top ? 'him' : fmt(m)) : ''}`; });
+  const regions = presence(chain.filter(m => !gap(m))).map(r => esc(r.region));
+  const gaps = chain.filter(gap), below = chain.find(m => !gap(m) && gaps.some(g => g.id === m.father));
+  let t = `The ${esc(lin)} line descends from ${fmt(top)}.`;
+  if (snps.length) t += snps.length > 1 ? ` Its SNPs, oldest first, are ${snps.slice(0, -1).join('; ')}; and ${snps[snps.length - 1]}.` : ` Its SNP is ${snps[0]}.`;
+  if (regions.length) t += ` Its men are recorded in ${regions.join(', then ')}.`;
+  if (gaps.length && below) t += ` The ${plural(gaps.length, 'generation')} between ${fmt(top)} and ${fmt(below)} ${gaps.length > 1 ? 'are' : 'is'} not yet documented; the line is joined to him by Y-DNA.`;
+  return t;
+}
+/* The pull-down under each group's tree: one ancestral line with its description, or all lines together. */
+function showLine(sel) {
+  const sig = sel.dataset.sig, lin = sel.value, box = sel.parentNode.querySelector('[data-line-view]');
+  box.innerHTML = lin ? `<p style="line-height:1.6;margin:0 0 12px">${lineSummary(sig, lin)}</p>${lineTree(lin)}` : snpTree(sig);
 }
 function lineageCard(sig, lin) {
   const men = menOf(lin), ts = testersOfLin(lin);
@@ -285,6 +323,47 @@ function mapCard(kind, key) {
     ])}
     <div data-map-kind="${kind}" data-map-key="${esc(key)}"></div></div>`;
 }
+/* ---------- SNP families by region (home page) ----------
+   Each group's SNPs drawn as a family tree from top to bottom: the oldest SNP at the top, each newer SNP below the one
+   it formed under, and in each box the regions where the men whose newest SNP it is were born or died, in order. */
+const FTREE_CSS = `<style>
+  .ftree { overflow-x: auto; padding: 4px 0 8px; }
+  .ftree ul { display: flex; justify-content: center; margin: 0; padding: 20px 0 0; position: relative; }
+  .ftree li { list-style: none; position: relative; padding: 20px 8px 0; display: flex; flex-direction: column; align-items: center; }
+  .ftree li::before, .ftree li::after { content: ''; position: absolute; top: 0; right: 50%; width: 50%; height: 20px; border-top: 2px solid #b9ad98; }
+  .ftree li::after { right: auto; left: 50%; border-left: 2px solid #b9ad98; }
+  .ftree li:first-child::before, .ftree li:last-child::after { border: 0 none; }
+  .ftree li:last-child::before { border-right: 2px solid #b9ad98; border-radius: 0 8px 0 0; }
+  .ftree li:first-child::after { border-radius: 8px 0 0 0; }
+  .ftree li:only-child { padding-top: 0; }
+  .ftree li:only-child::before, .ftree li:only-child::after { display: none; }
+  .ftree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; height: 20px; border-left: 2px solid #b9ad98; }
+  .ftree > ul { padding-top: 0; }
+  .ftree .fnode { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-width: 240px; text-align: center; }
+</style>`;
+function regionTree(sig) {
+  const list = D.snps.filter(s => s.sig === sig), roots = list.filter(s => !list.some(x => x.name === s.parent));
+  if (!roots.length) return '<p class="muted">No SNPs recorded yet.</p>';
+  const men = allMen().filter(m => m.sig === sig && !/^undocumented/i.test(m.name));
+  const node = s => {
+    const regions = presence(men.filter(m => snpOfMan(m) === s)).map(r => r.region);
+    const kids = s.kids.filter(k => list.includes(k));
+    return `<li><div class="fnode"><span class="snp-node target">${esc(s.name)}</span>${regions.length ? `<div class="hint" style="margin-top:8px;line-height:1.5">${regions.map(esc).join(' → ')}</div>` : ''}</div>${kids.length ? `<ul>${kids.map(node).join('')}</ul>` : ''}</li>`;
+  };
+  return `<div class="ftree"><ul>${roots.map(node).join('')}</ul></div>`;
+}
+/* The SNP tree page: one group at a time, with its summary and a pull-down to show one ancestral line. */
+function snpTreesCard() {
+  return `<div class="card" data-trees><h3>SNP trees</h3>
+    ${helpBox('How to read the SNP tree', [
+      'An SNP is a small, permanent change in Y-DNA. It begins in one man and is carried by all his sons, grandsons and later male-line descendants.',
+      'The oldest SNP is at the top. Each step down is a newer SNP that began in one man of a later generation. A man carries every SNP above him on his own branch. Where two branches split, the SNP just above the split is the one both lines share: it began in their common ancestor.'
+    ])}
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0"><span class="hint">Show:</span>${D.sigs.map((sig, i) => `<button class="btn small ghost" data-tree="${esc(sig)}" onclick="showTree(this)" style="color:var(--ink);border-color:var(--line)${i === 0 ? ';background:var(--accent-soft);font-weight:700' : ''}">${esc(sig)}</button>`).join('')}</div>
+    ${D.sigs.map((sig, i) => `<div data-tree-body="${esc(sig)}"${i === 0 ? '' : ' hidden'}>${SIG_SUMMARY[sig] ? `<p style="line-height:1.6;margin:0 0 12px">${esc(SIG_SUMMARY[sig])}</p>` : ''}
+      <select data-sig="${esc(sig)}" onchange="showLine(this)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;margin:0 0 12px;max-width:100%"><option value="">All lines</option>${lineagesOf(sig).map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}</select>
+      <div data-line-view>${snpTree(sig)}</div></div>`).join('')}</div>`;
+}
 /* ---------- Searchable map (signature page) ----------
    Type a place or an ancestor's name: the map marks the places, and the men recorded there are listed by Y-DNA group
    and by the SNP they carried. */
@@ -311,10 +390,16 @@ function buildSearchMap(box) {
     <div data-map-results style="margin-top:14px"></div>`;
   const map = L.map(box.querySelector('.mig-map'), { scrollWheelZoom: false, worldCopyJump: true });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  /* Outlines of the states and countries sit under the street map, in a layer of their own. Without an internet
+     connection the street map cannot load, and these outlines become the map. */
+  map.getContainer().style.background = '#dbe7ec';
+  map.createPane('outlines').style.zIndex = 150;
+  if (window.BARROW_OUTLINES) L.geoJSON(window.BARROW_OUTLINES, { pane: 'outlines', renderer: L.svg({ pane: 'outlines' }), interactive: false, style: { color: '#b9ad98', weight: 1, fillColor: '#f6f1e7', fillOpacity: 1 } }).addTo(map);
   const layer = L.layerGroup().addTo(map);
   liveMaps.push({ map, timer: null });
   const input = box.querySelector('[data-map-q]'), out = box.querySelector('[data-map-results]');
-  const fit = list => { if (list.length) map.fitBounds(L.latLngBounds(list.map(coordsOf)), { padding: [30, 30], maxZoom: 8 }); };
+  /* The map zooms to take in every area drawn, not only the centre of each place. */
+  const fit = list => { if (list.length) map.fitBounds(list.reduce((b, p) => b.extend(L.latLng(coordsOf(p)).toBounds((p.includes(',') ? 30000 : 120000) * 2)), L.latLngBounds([])), { padding: [20, 20], maxZoom: 8 }); };
   const yr = s => { const y = s && yearNum(s.year); return y == null ? 9999 : y; };
   const groupBtns = box.querySelectorAll('[data-map-group]');
   const show = () => {
@@ -330,7 +415,10 @@ function buildSearchMap(box) {
     }
     places.forEach(p => {
       const here = men.filter(m => placesOf(m).includes(p));
-      L.circleMarker(coordsOf(p), { radius: 5 + Math.min(here.length, 6), color: '#ffffff', weight: 1.5, fillColor: q ? '#a8762f' : '#15303c', fillOpacity: .95 })
+      /* Each place is drawn as an area of influence rather than a dot: about 30 km across a county or town, and
+         about 120 km where the records give only a state or country. */
+      const c = '#a8762f', wide = !p.includes(',');
+      L.circle(coordsOf(p), { radius: wide ? 120000 : 30000, color: c, weight: 1.5, opacity: .8, fillColor: c, fillOpacity: .25 })
         .bindTooltip(`<b>${esc(p)}</b><br>${plural(here.length, 'documented ancestor')}`)
         .on('click', () => { input.value = p; show(); }).addTo(layer);
     });
@@ -822,13 +910,13 @@ function renderHome() {
     'Y-DNA passes from father to son, so it follows the surname line. Each separate Barrow family carries its own set of permanent DNA markers, called SNPs, and that set is the family’s Y-DNA signature.',
     'Barrow men with different signatures share a surname but not a paternal ancestor. Open a signature to see its lineages and how it spread. <a href="#" data-go="learn">Learn the basics</a> explains each idea step by step.'
   ])}
-  <div class="card" data-trees><h3>SNP trees</h3>
-    ${helpBox('How to read the SNP tree', [
-      'An SNP is a small, permanent change in Y-DNA. It begins in one man and is carried by all his sons, grandsons and later male-line descendants.',
-      'The oldest SNP is at the top. Each step down is a newer SNP that began in one man of a later generation. A man carries every SNP above him on his own branch. Where two branches split, the SNP just above the split is the one both lines share: it began in their common ancestor.'
+  ${FTREE_CSS}
+  <div class="card" data-trees><h3>Barrow Genetic homelands by SNP</h3>
+    ${helpBox('How to read the SNP families', [
+      'Each tree is one Y-DNA group, drawn like a family tree: the oldest SNP at the top and each newer SNP below the SNP it formed under. Under each SNP are the regions where the men who carry it were born or died, in the order they first appear in the records, so the tree shows at a glance which branch of the family settled where.'
     ])}
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0"><span class="hint">Show:</span>${D.sigs.map((sig, i) => `<button class="btn small ghost" data-tree="${esc(sig)}" onclick="showTree(this)" style="color:var(--ink);border-color:var(--line)${i === 0 ? ';background:var(--accent-soft);font-weight:700' : ''}">${esc(sig)}</button>`).join('')}</div>
-    ${D.sigs.map((sig, i) => `<div data-tree-body="${esc(sig)}"${i === 0 ? '' : ' hidden'}>${SIG_SUMMARY[sig] ? `<p style="line-height:1.6;margin:0 0 12px">${esc(SIG_SUMMARY[sig])}</p>` : ''}${snpTree(sig)}</div>`).join('')}</div>
+    ${D.sigs.map((sig, i) => `<div data-tree-body="${esc(sig)}"${i === 0 ? '' : ' hidden'}>${regionTree(sig)}</div>`).join('')}</div>
   ${D.sigs.length < 2 ? '<p class="hint" style="margin-top:12px">The second signature will appear here once its data is added.</p>' : ''}`;
 }
 function renderSig(sig) {
@@ -860,6 +948,7 @@ function renderNav() {
   return `<a data-go="home" class="${on('home')}">Home</a>
     <a data-go="find" class="${on('find')}">Find my Barrow line</a>
     <a data-go="map" class="${on('map')}">SNP map</a>
+    <a data-go="tree" class="${on('tree')}">SNP tree</a>
     <a data-go="learn" class="${on('learn')}">Learn the basics</a>`;
 }
 function render() {
@@ -877,6 +966,9 @@ function render() {
   } else if (view.page === 'map') {
     crumb.textContent = 'Map';
     main.innerHTML = `<h1>Map</h1>${searchMapCard()}`;
+  } else if (view.page === 'tree') {
+    crumb.textContent = 'SNP tree';
+    main.innerHTML = `<h1>SNP tree</h1>${snpTreesCard()}`;
   } else if (view.page === 'search') {
     crumb.textContent = 'Search';
     main.innerHTML = renderSearch(view.q);
