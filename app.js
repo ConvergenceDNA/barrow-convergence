@@ -319,7 +319,7 @@ function migrationData(men) {
 function mapCard(kind, key) {
   return `<div class="card"><h3>Migration map</h3>
     ${helpBox('How to read the map', [
-      'Choose an ancestor’s line under the map to trace its migration. Each circle marks a region where men of that line were born or died, and each coloured line marks a move from one region to the next. The label beside a circle names the ancestors who brought the line to that region, grouped under the SNP they carried: the most recent SNP to have formed in them or in their paternal ancestors. Where the SNP changes from one region to the next, a new SNP formed along the way, and only the descendants of that branch carry it. Press Play to follow the migration year by year; England and America zoom to each side of the Atlantic.'
+      'Choose an ancestor’s line under the map to trace its migration. Each circle marks a region where men of that line were born or died, and each coloured line marks a move from one region to the next. The label beside a circle names the ancestors who brought the line to that region, grouped under the SNP they carried: the most recent SNP to have formed in them or in their paternal ancestors. Where the SNP changes from one region to the next, a new SNP formed along the way, and only the descendants of that branch carried it. Press Play to follow the migration year by year; England and America zoom to each side of the Atlantic.'
     ])}
     <div data-map-kind="${kind}" data-map-key="${esc(key)}"></div></div>`;
 }
@@ -352,25 +352,105 @@ function regionTree(sig) {
   };
   return `<div class="ftree"><ul>${roots.map(node).join('')}</ul></div>`;
 }
-/* The SNP tree page: one group at a time, with its summary and a pull-down to show one ancestral line. */
+/* ---------- SNP history (SNP tree page) ----------
+   For each SNP, the phase of the family it marks, written for readers new to Y-DNA. The facts beneath each one (the man it
+   formed in, its testers, lineages and regions) are read from the data. */
+const SNP_HISTORY = {
+  'R-Y86591': ['The Lancashire origin', 'R-Y86591 is the oldest SNP yet identified in Group 3, and every man in the group carries it. It formed in a Barrow living near Prescot and Warrington, Lancashire, the father of Thomas Barrow and William Barrow, so it marks the family while it was still in England. Both of the branches that later crossed to Virginia descend from him: one through William’s son Thomas, and one through Thomas’s grandson Henry Barrow (1716–1768), who was born in Liverpool and died in Brunswick County, Virginia.'],
+  'R-FT249996': ['The first emigration to Virginia', 'R-FT249996 formed in Thomas Barrow (1638–1684), who was born in Warrington, Lancashire, and died in Surry County, Virginia. It marks the branch of the family that crossed the Atlantic in the 1600s. His descendants carry it from Surry and Southampton Counties, Virginia, into Onslow and Edgecombe Counties, North Carolina, and on to Georgia.'],
+  'R-FTA49320': ['The move to Louisiana', 'R-FTA49320 formed in William Barrow (1739–1787), born in Surry County, Virginia, and died in Edgecombe County, North Carolina. It marks a branch within Thomas Barrow’s line whose descendants, Bennet Barrow (1777–1833) and his son Bennett (1811–1873), moved from North Carolina to West Feliciana Parish, Louisiana.'],
+  'R-Y91124': ['The Henry County, Virginia branch', 'R-Y91124 formed in John Daniel Barrow (1821–1854) of Henry County, Virginia. It marks the generations of Henry Barrow’s line that settled in Henry County after the family came to Brunswick County, Virginia, in the 1700s. His sons Benjamin Franklin Barrow I and Absolom Flournoy Barrow carry it, the latter into Rockingham County, North Carolina.'],
+  'R-FT36460': ['Colonial North Carolina', 'R-FT36460 is the oldest SNP yet identified in Group 6, and every man in the group carries it. It formed in John Barrow (1643–1718), who died in Perquimans County, North Carolina, and it marks the family in the colonial period. One line is documented from him through Pitt County, North Carolina, to Mississippi and Texas. The other lines are joined to him by Y-DNA alone, because the records linking them to him have not yet been found.'],
+  'R-FT36585': ['The move to Alabama', 'R-FT36585 formed in the father of Green Barrow (1798–1879) and John Grey Barrow (1804–1859), a man of North Carolina whose name is not yet known. It marks the branch whose families left North Carolina for Covington and Conecuh Counties, Alabama, with Jacob Grey Barrow (1823–1895) born along the way in Florida.'],
+  'R-FTC2492': ['The South Georgia branch', 'R-FTC2492 formed in Joseph Barrow (1770–1850), who was born in North Carolina and died in Thomas County, Georgia. It marks the branch that settled in South Georgia, where his son John Grey Barrow (1798–1875), grandson Joshua Barrow (1827–1910) and great-grandson Joseph Barrow (1849–1914) lived and died.']
+};
+function snpHistory(name) {
+  const s = D.snps.find(x => x.name === name);
+  if (!s) return '';
+  const h = SNP_HISTORY[name], m = D.men.get(s.formedIn);
+  const carriers = m ? descendantsOf(m).filter(x => D.confirmed.has(x.lineage) && !/^undocumented/i.test(x.name)) : [];
+  const testers = m ? testersUnder(m).length : 0;
+  const lines = [...new Set(carriers.map(x => x.lineage))].filter(l => testersOfLin(l).length);
+  /* The facts are drawn as a small graphic: three tiles, the SNP's place in the line of SNPs, its regions in order, and
+     its lineages, each of which opens the lineage. */
+  const tile = (label, value) => `<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:130px;flex:1"><div class="hint" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${label}</div><div style="font-weight:600;margin-top:4px;line-height:1.35">${value}</div></div>`;
+  const pill = n => `<span class="snp-node target" style="font-size:12px;padding:2px 8px${n === name ? ';outline:2px solid var(--ink);outline-offset:2px' : ''}">${esc(n)}</span>`;
+  const arrow = '<span class="muted" style="margin:0 2px">→</span>';
+  const head = t => `<div class="hint" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">${t}</div>`;
+  const row = items => `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">${items}</div>`;
+  const where = s.place || (m && (m.bplace || m.dplace)) || '';
+  const graphic = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">
+      ${tile('Formed in', m ? `${esc(nameIn(m).charAt(0).toUpperCase() + nameIn(m).slice(1))}${lifeOf(m) ? ` <span class="muted" style="font-weight:400">(${esc(lifeOf(m))})</span>` : ''}${where ? `<div class="hint" style="font-weight:400;margin-top:2px">${esc(where)}</div>` : ''}` : '—')}
+      ${tile('Testers', `<span style="font-size:26px">${testers}</span>`)}
+      ${tile('Lineages', `<span style="font-size:26px">${lines.length}</span>`)}
+    </div>
+    ${head('Line of SNPs')}${row([s.parent && pill(s.parent), pill(name), s.kids.length && s.kids.map(k => pill(k.name)).join('')].filter(Boolean).join(arrow))}
+    ${carriers.length ? head('Regions, in order') + row(presence(carriers).map(r => `<span class="tester-tag" style="margin-left:0;font-size:12px;padding:3px 10px">${esc(r.region)}</span>`).join(arrow)) : ''}
+    ${lines.length ? head('Lineages') + row(lines.map(l => `<span class="tester-tag" data-go="lin" data-sig="${esc(s.sig)}" data-lin="${esc(l)}" style="cursor:pointer;margin:0 6px 0 0;font-size:12px;padding:3px 10px">${esc(l)}</span>`).join('')) : ''}`;
+  return `<div style="border-left:4px solid var(--bronze);padding:4px 0 4px 14px;margin:0 0 16px">
+    <h4 style="margin:0 0 6px"><span class="snp-node target" style="font-size:12px;padding:2px 8px">${esc(name)}</span> ${h ? esc(h[0]) : ''}</h4>
+    ${h ? `<p style="line-height:1.6;margin:0 0 8px">${esc(h[1])}</p>` : ''}
+    ${graphic}</div>`;
+}
+/* The SNP pull-down: shows the chosen SNP's history above the tree and outlines it in the tree. */
+function showSnp(sel) {
+  const body = sel.parentNode;
+  body.querySelector('[data-snp-view]').innerHTML = sel.value ? snpHistory(sel.value) : '';
+  body.querySelectorAll('.utree .snp-node').forEach(n => { n.style.outline = n.textContent.trim() === sel.value ? '3px solid var(--ink)' : ''; n.style.outlineOffset = '2px'; });
+}
+/* ---------- Ancestors page ----------
+   A pull-down of every documented ancestor, by group and in alphabetical order. Choosing one shows his dates and places,
+   his Y-DNA group, the SNPs he carried and a link to his lineage. */
+const PLACEHOLDER = /^(undocumented|father of|son of|grandson of)/i;
+function renderAncestors() {
+  const men = allMen().filter(m => !PLACEHOLDER.test(m.name));
+  /* One pull-down for each group; choosing a man in one clears the other. */
+  const pulls = D.sigs.map(sig => `<label style="display:flex;flex-direction:column;gap:4px"><span class="hint">${esc(sig)}</span><select onchange="showAncestor(this)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;max-width:100%"><option value="">Choose an ancestor</option>${men.filter(m => m.sig === sig).sort((a, b) => a.name.localeCompare(b.name) || (yearNum(a.birth) || 9999) - (yearNum(b.birth) || 9999)).map(m => `<option value="${esc(m.id)}">${esc(m.name)}${lifeOf(m) ? ' (' + esc(lifeOf(m)) + ')' : ''}</option>`).join('')}</select></label>`).join('');
+  return `<h1>Ancestors</h1>
+  <div class="card"><h3>Look up an ancestor</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:16px">${pulls}</div>
+    <div data-anc-view style="margin-top:16px"></div></div>`;
+}
+function showAncestor(sel) {
+  const card = sel.closest('.card');
+  card.querySelectorAll('select').forEach(x => { if (x !== sel) x.value = ''; });
+  card.querySelector('[data-anc-view]').innerHTML = sel.value ? ancestorCard(D.men.get(sel.value)) : '';
+}
+function ancestorCard(m) {
+  const path = [];
+  for (let x = m; x; x = D.men.get(x.father)) path.unshift(...x.snps);
+  const newest = path[path.length - 1], testers = testersUnder(m).length;
+  const tile = (label, value) => `<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:150px;flex:1"><div class="hint" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${label}</div><div style="font-weight:600;margin-top:4px;line-height:1.35">${value}</div></div>`;
+  const when = (y, p) => `${y ? esc(y) : '—'}${p ? `<div class="hint" style="font-weight:400;margin-top:2px">${esc(p)}</div>` : ''}`;
+  const head = t => `<div class="hint" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">${t}</div>`;
+  const pill = s => `<span class="snp-node target" style="font-size:12px;padding:2px 8px${s === newest ? ';outline:2px solid var(--ink);outline-offset:2px' : ''}">${esc(s.name)}</span>`;
+  return `<div style="border-left:4px solid var(--bronze);padding:4px 0 4px 14px">
+    <h4 style="margin:0 0 4px">${esc(m.name)}${lifeOf(m) ? ` <span class="muted" style="font-weight:400">(${esc(lifeOf(m))})</span>` : ''}</h4>
+    <div class="hint">${esc(m.sig)} · ${esc(m.lineage)} line</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">
+      ${tile('Born', when(m.birth, m.bplace))}
+      ${tile('Died', when(m.death, m.dplace))}
+      ${tile('Testers descended from him', `<span style="font-size:26px">${testers}</span>`)}
+    </div>
+    ${newest ? head('His newest SNP') + `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">${pill(newest)}${SNP_HISTORY[newest.name] ? `<span>${esc(SNP_HISTORY[newest.name][0])}</span>` : ''}</div>` : ''}
+    ${path.length ? head('SNPs he carried, oldest first') + `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">${path.map(pill).join('<span class="muted" style="margin:0 2px">→</span>')}</div>` : ''}
+    <div style="margin-top:16px"><span class="tester-tag" data-go="lin" data-sig="${esc(m.sig)}" data-lin="${esc(m.lineage)}" data-hl="${esc(m.id)}" style="cursor:pointer;margin-left:0;font-size:13px;padding:4px 12px">Open his lineage →</span></div></div>`;
+}
+/* The SNP tree page: one group at a time, with its summary and a pull-down to read each SNP's history. */
 function snpTreesCard() {
-  return `<div class="card" data-trees><h3>SNP trees</h3>
-    ${helpBox('How to read the SNP tree', [
-      'An SNP is a small, permanent change in Y-DNA. It begins in one man and is carried by all his sons, grandsons and later male-line descendants.',
-      'The oldest SNP is at the top. Each step down is a newer SNP that began in one man of a later generation. A man carries every SNP above him on his own branch. Where two branches split, the SNP just above the split is the one both lines share: it began in their common ancestor.'
-    ])}
+  return `<div class="card" data-trees><h3>SNP history</h3>
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0"><span class="hint">Show:</span>${D.sigs.map((sig, i) => `<button class="btn small ghost" data-tree="${esc(sig)}" onclick="showTree(this)" style="color:var(--ink);border-color:var(--line)${i === 0 ? ';background:var(--accent-soft);font-weight:700' : ''}">${esc(sig)}</button>`).join('')}</div>
     ${D.sigs.map((sig, i) => `<div data-tree-body="${esc(sig)}"${i === 0 ? '' : ' hidden'}>${SIG_SUMMARY[sig] ? `<p style="line-height:1.6;margin:0 0 12px">${esc(SIG_SUMMARY[sig])}</p>` : ''}
-      <select data-sig="${esc(sig)}" onchange="showLine(this)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;margin:0 0 12px;max-width:100%"><option value="">All lines</option>${lineagesOf(sig).map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}</select>
-      <div data-line-view>${snpTree(sig)}</div></div>`).join('')}</div>`;
+      <select onchange="showSnp(this)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;margin:0 0 12px;max-width:100%"><option value="">Choose an SNP to read its history</option>${(() => { const list = D.snps.filter(s => s.sig === sig), order = [], walk = n => n.forEach(s => { order.push(s); walk(s.kids); }); walk(list.filter(s => !list.some(x => x.name === s.parent))); return order.map(s => `<option value="${esc(s.name)}">${esc(s.name)}${SNP_HISTORY[s.name] ? ' · ' + esc(SNP_HISTORY[s.name][0]) : ''}</option>`).join(''); })()}</select>
+      <div data-snp-view></div></div>`).join('')}</div>`;
 }
 /* ---------- Searchable map (signature page) ----------
    Type a place or an ancestor's name: the map marks the places, and the men recorded there are listed by Y-DNA group
    and by the SNP they carried. */
 function searchMapCard() {
-  return `<div class="card"><h3>Search the map</h3>
+  return `<div class="card"><h3>SNP map</h3>
     ${helpBox('How to read the map', [
-      'Type a place, such as a county or a state, or an ancestor’s name. The map marks each place where a documented Barrow of a Y-DNA confirmed lineage was born or died, and the list below the map sorts the men recorded there by Y-DNA group and by the SNP they carried: the most recent SNP to have formed in them or in their paternal ancestors. An SNP listed for a place means that men carrying it are recorded there, so a member whose ancestor lived in that place can see which Barrow groups and branches were present. Click a marker to search that place, or a man’s name to open his lineage.'
+      'Choose a group, then an SNP or one of its regions, from the pull-down. The map shades the places where that SNP’s men were born or died, and lists the ancestors of each region below the map.'
     ])}
     <div data-search-map></div></div>`;
 }
@@ -382,9 +462,9 @@ function buildSearchMap(box) {
   const placesOf = m => [m.bplace, m.dplace].filter(p => p && coordsOf(p));
   if (!allMen().some(m => placesOf(m).length)) { box.innerHTML = '<p class="muted">No places with map positions yet. Add them to barrow-places.csv.</p>'; return; }
   /* The group buttons choose which Y-DNA groups the map shows: one group, or all of them together. */
-  let group = 'all';
+  let group = 'all', pick = 'all';
   const btn = (k, label) => `<button class="btn small ghost" data-map-group="${esc(k)}" style="color:var(--ink);border-color:var(--line)">${esc(label)}</button>`;
-  box.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="hint">Show:</span>${D.sigs.map(sig => btn(sig, sig)).join('')}${D.sigs.length > 1 ? btn('all', D.sigs.length === 2 ? 'Both' : 'All groups') : ''}</div>
+  box.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="hint">Show:</span>${D.sigs.map(sig => btn(sig, sig)).join('')}${D.sigs.length > 1 ? btn('all', D.sigs.length === 2 ? 'Both' : 'All groups') : ''}<select data-map-pick style="margin-left:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;max-width:100%"></select></div>
     <input type="search" data-map-q placeholder="Search a place or an ancestor, e.g. Pitt County, Georgia or Samuel Barrow" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-bottom:10px">
     <div class="mig-map" style="height:460px;border-radius:8px;border:1px solid var(--line)"></div>
     <div data-map-results style="margin-top:14px"></div>`;
@@ -399,11 +479,20 @@ function buildSearchMap(box) {
   liveMaps.push({ map, timer: null });
   const input = box.querySelector('[data-map-q]'), out = box.querySelector('[data-map-results]');
   /* The map zooms to take in every area drawn, not only the centre of each place. */
-  const fit = list => { if (list.length) map.fitBounds(list.reduce((b, p) => b.extend(L.latLng(coordsOf(p)).toBounds((p.includes(',') ? 30000 : 120000) * 2)), L.latLngBounds([])), { padding: [20, 20], maxZoom: 8 }); };
+  const fit = list => { if (list.length) map.fitBounds(list.reduce((b, p) => b.extend(L.latLng(coordsOf(p)).toBounds((p.includes(',') ? 30000 : 120000) * 2)), L.latLngBounds([])), { padding: [20, 20], maxZoom: 8, animate: false }); };
   const yr = s => { const y = s && yearNum(s.year); return y == null ? 9999 : y; };
   const groupBtns = box.querySelectorAll('[data-map-group]');
   const show = () => {
     groupBtns.forEach(b => { const on = b.dataset.mapGroup === group; b.style.background = on ? 'var(--accent-soft)' : ''; b.style.fontWeight = on ? '700' : ''; });
+    /* The pull-down lists each SNP of the chosen group, oldest first, with the ancestor it formed in. */
+    const pickSel = box.querySelector('[data-map-pick]');
+    pickSel.innerHTML = '<option value="all">All SNPs</option>' + D.sigs.filter(sig => group === 'all' || sig === group).map(sig => {
+      const list = D.snps.filter(s => s.sig === sig), order = [], walk = n => n.forEach(s => { order.push(s); walk(s.kids); });
+      walk(list.filter(s => !list.some(x => x.name === s.parent)));
+      return `<optgroup label="${esc(sig)}">${order.map(s => { const f = D.men.get(s.formedIn); return `<option value="${esc(s.name)}">${esc(s.name)}${f ? ' · ' + esc(nameIn(f)) + (lifeOf(f) ? ' (' + esc(lifeOf(f)) + ')' : '') : ''}</option>`; }).join('')}</optgroup>`;
+    }).join('');
+    if (![...pickSel.options].some(o => o.value === pick)) pick = 'all';
+    pickSel.value = pick;
     const men = allMen().filter(m => group === 'all' || m.sig === group), all = [...new Set(men.flatMap(placesOf))];
     const q = norm(input.value);
     layer.clearLayers();
@@ -413,16 +502,36 @@ function buildSearchMap(box) {
       found = men.filter(m => norm(m.name).includes(q) || placesOf(m).some(p => byPlace.includes(p)));
       places = byPlace.length ? byPlace : [...new Set(found.flatMap(placesOf))];
     }
-    places.forEach(p => {
-      const here = men.filter(m => placesOf(m).includes(p));
-      /* Each place is drawn as an area of influence rather than a dot: about 30 km across a county or town, and
-         about 120 km where the records give only a state or country. */
-      const c = '#a8762f', wide = !p.includes(',');
-      L.circle(coordsOf(p), { radius: wide ? 120000 : 30000, color: c, weight: 1.5, opacity: .8, fillColor: c, fillOpacity: .25 })
-        .bindTooltip(`<b>${esc(p)}</b><br>${plural(here.length, 'documented ancestor')}`)
-        .on('click', () => { input.value = p; show(); }).addTo(layer);
+    /* One area of influence per SNP: each SNP is drawn in its own colour over the places where the men whose newest SNP
+       it is were born or died, and labelled with the ancestor it formed in. Each place covers about 30 km across a county
+       or town, and about 120 km where the records give only a state or country. */
+    const bySnp = new Map(), used = [];
+    (q ? found : men).slice().sort((a, b) => (yearNum(a.birth) || 9999) - (yearNum(b.birth) || 9999)).forEach(m => {
+      const s = snpOfMan(m);
+      if (!s) return;
+      const g = bySnp.get(s) || { s, places: [] };
+      placesOf(m).filter(p => places.includes(p) && !g.places.includes(p)).forEach(p => g.places.push(p));
+      bySnp.set(s, g);
     });
-    fit(places);
+    /* With one SNP chosen in the pull-down, only its areas are drawn and the map zooms to them. */
+    const chosen = [...bySnp.values()].find(g => g.s.name === pick);
+    fit(chosen && chosen.places.length ? chosen.places : places);
+    bySnp.forEach(({ s, places: ps }) => {
+      if (!ps.length || (pick !== 'all' && s.name !== pick)) return;
+      const c = snpColor(s), founder = D.men.get(s.formedIn), who = founder ? `${nameIn(founder)}${lifeOf(founder) ? ` (${lifeOf(founder)})` : ''}` : '';
+      ps.forEach(p => L.circle(coordsOf(p), { radius: p.includes(',') ? 30000 : 120000, color: c, weight: 1.5, opacity: .85, fillColor: c, fillOpacity: .25 })
+        .bindTooltip(`<b>${esc(s.name)}</b>${who ? ' · ' + esc(who) : ''}<br>${esc(p)}`)
+        .on('click', () => { input.value = p; show(); }).addTo(layer));
+      /* The label sits where the SNP formed when that place is shown, otherwise where its ancestor died or was born,
+         otherwise at the earliest place of its men. Labels that would land on the same spot are stacked. */
+      const at = s.place && coordsOf(s.place) && ps.some(p => regionOf(p) === regionOf(s.place)) ? s.place
+        : [founder && founder.dplace, founder && founder.bplace].find(p => p && ps.includes(p)) || ps[0];
+      const pt = map.latLngToContainerPoint(coordsOf(at));
+      let off = 0;
+      while (used.some(u => Math.abs(u.x - pt.x) < 230 && Math.abs(u.y - (pt.y + off)) < 38)) off += 40;
+      used.push({ x: pt.x, y: pt.y + off });
+      L.marker(coordsOf(at), { interactive: false, icon: L.divIcon({ className: '', iconAnchor: [-10, 12 - off], html: `<span style="display:inline-block;white-space:nowrap;font-size:11px;line-height:1.35;padding:2px 7px;background:#fff;border:1px solid ${c};border-left:4px solid ${c};border-radius:4px;color:var(--ink)"><b style="color:${c}">${esc(s.name)}</b>${who ? '<br>' + esc(who) : ''}</span>` }) }).addTo(layer);
+    });
     if (!q) { out.innerHTML = '<p class="hint">Search for a place or an ancestor to see which Barrow groups and SNPs are recorded there.</p>'; return; }
     if (!found.length) { out.innerHTML = `<p class="muted">No documented Barrow men found for “${esc(input.value)}”.</p>`; return; }
     const sigs = [...new Set(found.map(m => m.sig))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
@@ -437,11 +546,77 @@ function buildSearchMap(box) {
     }).join('');
   };
   input.addEventListener('input', show);
-  groupBtns.forEach(b => b.addEventListener('click', () => { group = b.dataset.mapGroup; show(); }));
+  groupBtns.forEach(b => b.addEventListener('click', () => { group = b.dataset.mapGroup; pick = 'all'; show(); }));
+  box.querySelector('[data-map-pick]').addEventListener('change', e => { pick = e.target.value; show(); });
+  show();
+}
+/* The map page: choose a group, then an SNP or one of its regions from the pull-down. The map shades the places where the
+   men who carried that SNP were born or died, in the SNP's colour, and the ancestors recorded in each region are listed
+   below the map. */
+function buildManMap(box) {
+  if (typeof L === 'undefined') { box.innerHTML = '<p class="muted">The map could not load.</p>'; return; }
+  const placesOf = m => [m.bplace, m.dplace].filter(p => p && coordsOf(p));
+  let group = D.sigs[0], pick = 'all';
+  box.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="hint">Show:</span>${D.sigs.map(sig => `<button class="btn small ghost" data-map-group="${esc(sig)}" style="color:var(--ink);border-color:var(--line)">${esc(sig)}</button>`).join('')}<select data-map-pick style="margin-left:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;max-width:100%"></select></div>
+    <div class="mig-map" style="height:460px;border-radius:8px;border:1px solid var(--line)"></div>
+    <div data-map-results style="margin-top:14px"></div>`;
+  const map = L.map(box.querySelector('.mig-map'), { scrollWheelZoom: false, worldCopyJump: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  /* Outlines of the states and countries sit under the street map; without an internet connection they become the map. */
+  map.getContainer().style.background = '#dbe7ec';
+  map.createPane('outlines').style.zIndex = 150;
+  if (window.BARROW_OUTLINES) L.geoJSON(window.BARROW_OUTLINES, { pane: 'outlines', renderer: L.svg({ pane: 'outlines' }), interactive: false, style: { color: '#b9ad98', weight: 1, fillColor: '#f6f1e7', fillOpacity: 1 } }).addTo(map);
+  const layer = L.layerGroup().addTo(map);
+  liveMaps.push({ map, timer: null });
+  const out = box.querySelector('[data-map-results]'), groupBtns = box.querySelectorAll('[data-map-group]'), pickSel = box.querySelector('[data-map-pick]');
+  /* Each place covers about 30 km across a county or town, and about 120 km where the records give only a state or country. */
+  const area = p => p.includes(',') ? 30000 : 120000;
+  const fit = list => { if (list.length) map.fitBounds(list.reduce((b, p) => b.extend(L.latLng(coordsOf(p)).toBounds(area(p) * 2)), L.latLngBounds([])), { padding: [20, 20], maxZoom: 8, animate: false }); };
+  const who = m => `${m.name}${lifeOf(m) ? ` (${lifeOf(m)})` : ''}`;
+  const show = () => {
+    groupBtns.forEach(b => { const on = b.dataset.mapGroup === group; b.style.background = on ? 'var(--accent-soft)' : ''; b.style.fontWeight = on ? '700' : ''; });
+    const men = allMen().filter(m => m.sig === group && placesOf(m).length && !/^undocumented/i.test(m.name));
+    /* The group's SNPs, oldest first, each with the men whose newest SNP it is and the regions where they lived. */
+    const list = D.snps.filter(s => s.sig === group), order = [], walk = n => n.forEach(s => { order.push(s); walk(s.kids); });
+    walk(list.filter(s => !list.some(x => x.name === s.parent)));
+    const snps = order.map(s => {
+      /* Every man who carries the SNP: those in whom it or a newer SNP below it formed, and their descendants. */
+      const carriers = men.filter(m => { for (let x = m; x; x = D.men.get(x.father)) if (x.snps.includes(s)) return true; return false; });
+      return { s, carriers, regions: presence(carriers).map(r => r.region) };
+    }).filter(x => x.carriers.length);
+    pickSel.innerHTML = '<option value="all">All SNPs</option>' + snps.map(x => `<optgroup label="${esc(x.s.name)}"><option value="snp:${esc(x.s.name)}">${esc(x.s.name)}: all regions</option>${x.regions.map(r => `<option value="reg:${esc(x.s.name)}|${esc(r)}">${esc(r)}</option>`).join('')}</optgroup>`).join('');
+    if (![...pickSel.options].some(o => o.value === pick)) pick = 'all';
+    pickSel.value = pick;
+    const [kind, rest] = pick === 'all' ? ['all', ''] : [pick.slice(0, 3), pick.slice(4)];
+    const [snpName, region] = rest.split('|');
+    /* One shaded area per SNP and place, listing the men recorded there. */
+    const areas = new Map(), byRegion = new Map();
+    snps.filter(x => kind === 'all' || x.s.name === snpName).forEach(({ s, carriers }) => carriers.filter(m => kind !== 'all' || snpOfMan(m) === s).forEach(m => placesOf(m).forEach(p => {
+      if (kind === 'reg' && regionOf(p) !== region) return;
+      const a = areas.get(`${s.name}|${p}`) || { s, p, men: [] };
+      if (!a.men.includes(m)) a.men.push(m);
+      areas.set(`${s.name}|${p}`, a);
+      const r = byRegion.get(regionOf(p)) || [];
+      if (!r.includes(m)) r.push(m);
+      byRegion.set(regionOf(p), r);
+    })));
+    layer.clearLayers();
+    fit([...new Set([...areas.values()].map(a => a.p))]);
+    areas.forEach(({ s, p, men: here }) => {
+      const c = snpColor(s);
+      L.circle(coordsOf(p), { radius: area(p), color: c, weight: 1.5, opacity: .85, fillColor: c, fillOpacity: .25 })
+        .bindTooltip(`<b>${esc(p)}</b> · ${esc(s.name)}<br>${here.map(m => esc(who(m))).join('<br>')}`).addTo(layer);
+    });
+    /* Below the map, the ancestors recorded in each region shown, oldest first; each name opens his lineage. */
+    out.innerHTML = kind === 'all' ? '<p class="hint">Choose an SNP or one of its regions from the pull-down to see the ancestors recorded there.</p>'
+      : [...byRegion].map(([r, list]) => `<div style="margin:0 0 12px"><div style="font-weight:600;margin-bottom:6px">${esc(r)}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${list.sort((a, b) => (yearNum(a.birth) || 9999) - (yearNum(b.birth) || 9999)).map(m => `<span class="tester-tag" data-go="lin" data-sig="${esc(m.sig)}" data-lin="${esc(m.lineage)}" data-hl="${esc(m.id)}" style="cursor:pointer;margin-left:0;font-size:13px;padding:3px 10px">${esc(m.name)}${lifeOf(m) ? ` <span class="muted">(${esc(lifeOf(m))})</span>` : ''}</span>`).join('')}</div></div>`).join('');
+  };
+  groupBtns.forEach(b => b.addEventListener('click', () => { group = b.dataset.mapGroup; pick = 'all'; show(); }));
+  pickSel.addEventListener('change', () => { pick = pickSel.value; show(); });
   show();
 }
 function clearMaps() { liveMaps.forEach(x => { clearInterval(x.timer); x.map.remove(); }); liveMaps = []; }
-function setupMaps() { document.querySelectorAll('[data-map-kind]').forEach(buildMap); document.querySelectorAll('[data-search-map]').forEach(buildSearchMap); }
+function setupMaps() { document.querySelectorAll('[data-map-kind]').forEach(buildMap); document.querySelectorAll('[data-search-map]').forEach(buildManMap); }
 function buildMap(box) {
   if (typeof L === 'undefined') { box.innerHTML = '<p class="muted">The map needs an internet connection to load.</p>'; return; }
   const key = box.dataset.mapKey, men = box.dataset.mapKind === 'sig' ? allMen().filter(m => m.sig === key) : menOf(key);
@@ -911,7 +1086,7 @@ function renderHome() {
     'Barrow men with different signatures share a surname but not a paternal ancestor. Open a signature to see its lineages and how it spread. <a href="#" data-go="learn">Learn the basics</a> explains each idea step by step.'
   ])}
   ${FTREE_CSS}
-  <div class="card" data-trees><h3>Barrow Genetic homelands by SNP</h3>
+  <div class="card" data-trees><h3>Barrow migrations by SNP</h3>
     ${helpBox('How to read the SNP families', [
       'Each tree is one Y-DNA group, drawn like a family tree: the oldest SNP at the top and each newer SNP below the SNP it formed under. Under each SNP are the regions where the men who carry it were born or died, in the order they first appear in the records, so the tree shows at a glance which branch of the family settled where.'
     ])}
@@ -938,7 +1113,7 @@ function renderLin(sig, lin) {
   <div class="card"><h3>The documented line</h3>
     ${helpBox('About this lineage', [
       'This is the line father to son, with the oldest man at the top. Each man’s dates and places come from the records.',
-      'A bronze SNP beside a man means that SNP began in him, so every male-line descendant of his carries it. A grey tag shows how many testers descend from that man, and their newest SNP. The testers’ results are what confirm this line by Y-DNA. Living generations and testers’ names are never shown.'
+      'A bronze SNP beside a man means that SNP began in him, so every male-line descendant of his carries it. A grey tag shows how many testers descend from that man, and their newest SNP.'
     ])}
     ${lineTree(lin)}</div>
   <div class="tbl-actions"><button class="btn ghost" data-go="home">← Back to Home</button></div>`;
@@ -948,7 +1123,8 @@ function renderNav() {
   return `<a data-go="home" class="${on('home')}">Home</a>
     <a data-go="find" class="${on('find')}">Find my Barrow line</a>
     <a data-go="map" class="${on('map')}">SNP map</a>
-    <a data-go="tree" class="${on('tree')}">SNP tree</a>
+    <a data-go="tree" class="${on('tree')}">SNP history</a>
+    <a data-go="ancestors" class="${on('ancestors')}">Ancestors</a>
     <a data-go="learn" class="${on('learn')}">Learn the basics</a>`;
 }
 function render() {
@@ -966,9 +1142,12 @@ function render() {
   } else if (view.page === 'map') {
     crumb.textContent = 'Map';
     main.innerHTML = `<h1>Map</h1>${searchMapCard()}`;
+  } else if (view.page === 'ancestors') {
+    crumb.textContent = 'Ancestors';
+    main.innerHTML = renderAncestors();
   } else if (view.page === 'tree') {
-    crumb.textContent = 'SNP tree';
-    main.innerHTML = `<h1>SNP tree</h1>${snpTreesCard()}`;
+    crumb.textContent = 'SNP history';
+    main.innerHTML = `<h1>SNP history</h1>${snpTreesCard()}`;
   } else if (view.page === 'search') {
     crumb.textContent = 'Search';
     main.innerHTML = renderSearch(view.q);
