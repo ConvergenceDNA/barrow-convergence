@@ -94,7 +94,7 @@ function buildData(A, T, S) {
   snps.forEach(s => s.kids.sort((a, b) => (yearNum(a.year) || 9999) - (yearNum(b.year) || 9999)));
   const testers = T.map(t => ({ kit: t['Kit'], sig: t['Signature'], lineage: t['Lineage'], snp: t['Terminal SNP'], gg: t['Great-grandfather ID'] }));
   testers.forEach(t => { const m = men.get(t.gg); if (m) m.testers.push(t); });
-  const sigs = [...new Set(A.map(a => a['Signature']).concat(S.map(s => s['Signature'])).filter(Boolean))];
+  const sigs = [...new Set(A.map(a => a['Signature']).concat(S.map(s => s['Signature'])).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   /* A lineage is confirmed by Y-DNA when at least one of its descendants has tested. Only confirmed lineages are shown. */
   const confirmed = new Set(testers.map(t => t.lineage));
   return { men, snps, testers, sigs, confirmed };
@@ -160,6 +160,17 @@ function lineTree(lin) {
   return `<div class="tree utree"><ul>${tops.map(t => node(t.m, t.kids)).join('')}</ul></div>`;
 }
 /* The signature's SNP tree, oldest SNP at the top, each with the man it formed in. */
+/* A short summary of each Y-DNA group, shown above its SNP tree on the home page. */
+const SIG_SUMMARY = {
+  'Group 3': 'Group 3 is a Barrow family from Lancashire, England, descended from a man who lived near Prescot and Warrington and carried the SNP R-Y86591. Two of his descendants emigrated to Virginia: Thomas Barrow (1638–1684), born in Warrington, in whom R-FT249996 formed, and Henry Barrow (1716–1768), born in Liverpool. From Virginia their lines spread into North Carolina, Georgia and Louisiana, and newer SNPs formed along the way: R-FTA49320 in Thomas’s branch and R-Y91124 in Henry’s.',
+  'Group 6': 'Group 6 is a Barrow family of colonial North Carolina, descended from John Barrow (1643–1718) of Perquimans County, in whom the SNP R-FT36460 formed. His descendants moved west and south: Samuel Barrow (1805–1852) to Texas, James Barrow (1772–1868) to Tennessee, John Barrow (1800–1880) to Missouri, Green Barrow (1798–1879) and John Grey Barrow (1804–1859) to Alabama, and Joseph Barrow (1770–1850) to Georgia. Newer SNPs formed along the way, such as R-FT36585 in the father of Green and John Grey Barrow, and R-FTC2492 in Joseph Barrow. Several of these lines are linked to John Barrow by Y-DNA alone.'
+};
+/* The home page shows one group's SNP tree at a time; its buttons switch between the groups. */
+function showTree(b) {
+  const box = b.closest('[data-trees]');
+  box.querySelectorAll('[data-tree-body]').forEach(d => { d.hidden = d.dataset.treeBody !== b.dataset.tree; });
+  box.querySelectorAll('[data-tree]').forEach(x => { x.style.background = x === b ? 'var(--accent-soft)' : ''; x.style.fontWeight = x === b ? '700' : ''; });
+}
 function snpTree(sig) {
   const list = D.snps.filter(s => s.sig === sig);
   const roots = list.filter(s => !list.some(x => x.name === s.parent));
@@ -167,7 +178,7 @@ function snpTree(sig) {
   const draw = nodes => `<ul>${nodes.map(s => {
     const m = D.men.get(s.formedIn);
     const who = m ? `<span class="anc-node ut-link" data-go="lin" data-sig="${esc(sig)}" data-lin="${esc(m.lineage)}">${esc(m.name)}${lifeOf(m) ? ' (' + esc(lifeOf(m)) + ')' : ''}</span>` : '';
-    const when = [s.year && `c. ${s.year}`, s.place].filter(Boolean).join(' · ');
+    const when = s.place || '';
     return `<li><div class="ut-row"><span class="snp-node target">${esc(s.name)}</span>${who ? '<span class="hint">formed in</span>' + who : ''}${when ? `<span class="hint">${esc(when)}</span>` : ''}</div>${s.kids.length ? draw(s.kids) : ''}</li>`;
   }).join('')}</ul>`;
   return `<div class="tree utree">${draw(roots)}</div>
@@ -270,18 +281,91 @@ function migrationData(men) {
 function mapCard(kind, key) {
   return `<div class="card"><h3>Migration map</h3>
     ${helpBox('How to read the map', [
-      'Choose an SNP under the map to see where it spread. Each circle covers one region where men who carry that SNP were born or died. Start with the oldest SNP, then click the newer ones under it: each newer SNP covers fewer regions, because only the branch it began in carries it.',
-      `Each dark dot is a place where men of this ${kind === 'sig' ? 'signature' : 'line'} were born or died, and each grey line is a move between generations.`,
-      'Press Play to watch it happen: the chosen SNP’s circle appears where it began, grows as its carriers fill the region, and new circles appear in each region they move on to. England and America zoom to each side of the ocean.'
+      'Choose an ancestor’s line under the map to trace its migration. Each circle marks a region where men of that line were born or died, and each coloured line marks a move from one region to the next. The label beside a circle names the ancestors who brought the line to that region, grouped under the SNP they carried: the most recent SNP to have formed in them or in their paternal ancestors. Where the SNP changes from one region to the next, a new SNP formed along the way, and only the descendants of that branch carry it. Press Play to follow the migration year by year; England and America zoom to each side of the Atlantic.'
     ])}
     <div data-map-kind="${kind}" data-map-key="${esc(key)}"></div></div>`;
 }
+/* ---------- Searchable map (signature page) ----------
+   Type a place or an ancestor's name: the map marks the places, and the men recorded there are listed by Y-DNA group
+   and by the SNP they carried. */
+function searchMapCard() {
+  return `<div class="card"><h3>Search the map</h3>
+    ${helpBox('How to read the map', [
+      'Type a place, such as a county or a state, or an ancestor’s name. The map marks each place where a documented Barrow of a Y-DNA confirmed lineage was born or died, and the list below the map sorts the men recorded there by Y-DNA group and by the SNP they carried: the most recent SNP to have formed in them or in their paternal ancestors. An SNP listed for a place means that men carrying it are recorded there, so a member whose ancestor lived in that place can see which Barrow groups and branches were present. Click a marker to search that place, or a man’s name to open his lineage.'
+    ])}
+    <div data-search-map></div></div>`;
+}
+/* The newest SNP a man carried: the last SNP that formed in him or in one of his fathers. */
+function snpOfMan(m) { for (let x = m; x; x = D.men.get(x.father)) if (x.snps.length) return x.snps[x.snps.length - 1]; return null; }
+function buildSearchMap(box) {
+  if (typeof L === 'undefined') { box.innerHTML = '<p class="muted">The map needs an internet connection to load.</p>'; return; }
+  const norm = s => String(s || '').toLowerCase().trim();
+  const placesOf = m => [m.bplace, m.dplace].filter(p => p && coordsOf(p));
+  if (!allMen().some(m => placesOf(m).length)) { box.innerHTML = '<p class="muted">No places with map positions yet. Add them to barrow-places.csv.</p>'; return; }
+  /* The group buttons choose which Y-DNA groups the map shows: one group, or all of them together. */
+  let group = 'all';
+  const btn = (k, label) => `<button class="btn small ghost" data-map-group="${esc(k)}" style="color:var(--ink);border-color:var(--line)">${esc(label)}</button>`;
+  box.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="hint">Show:</span>${D.sigs.map(sig => btn(sig, sig)).join('')}${D.sigs.length > 1 ? btn('all', D.sigs.length === 2 ? 'Both' : 'All groups') : ''}</div>
+    <input type="search" data-map-q placeholder="Search a place or an ancestor, e.g. Pitt County, Georgia or Samuel Barrow" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-bottom:10px">
+    <div class="mig-map" style="height:460px;border-radius:8px;border:1px solid var(--line)"></div>
+    <div data-map-results style="margin-top:14px"></div>`;
+  const map = L.map(box.querySelector('.mig-map'), { scrollWheelZoom: false, worldCopyJump: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  const layer = L.layerGroup().addTo(map);
+  liveMaps.push({ map, timer: null });
+  const input = box.querySelector('[data-map-q]'), out = box.querySelector('[data-map-results]');
+  const fit = list => { if (list.length) map.fitBounds(L.latLngBounds(list.map(coordsOf)), { padding: [30, 30], maxZoom: 8 }); };
+  const yr = s => { const y = s && yearNum(s.year); return y == null ? 9999 : y; };
+  const groupBtns = box.querySelectorAll('[data-map-group]');
+  const show = () => {
+    groupBtns.forEach(b => { const on = b.dataset.mapGroup === group; b.style.background = on ? 'var(--accent-soft)' : ''; b.style.fontWeight = on ? '700' : ''; });
+    const men = allMen().filter(m => group === 'all' || m.sig === group), all = [...new Set(men.flatMap(placesOf))];
+    const q = norm(input.value);
+    layer.clearLayers();
+    let places = all, found = [];
+    if (q) {
+      const byPlace = all.filter(p => norm(p).includes(q));
+      found = men.filter(m => norm(m.name).includes(q) || placesOf(m).some(p => byPlace.includes(p)));
+      places = byPlace.length ? byPlace : [...new Set(found.flatMap(placesOf))];
+    }
+    places.forEach(p => {
+      const here = men.filter(m => placesOf(m).includes(p));
+      L.circleMarker(coordsOf(p), { radius: 5 + Math.min(here.length, 6), color: '#ffffff', weight: 1.5, fillColor: q ? '#a8762f' : '#15303c', fillOpacity: .95 })
+        .bindTooltip(`<b>${esc(p)}</b><br>${plural(here.length, 'documented ancestor')}`)
+        .on('click', () => { input.value = p; show(); }).addTo(layer);
+    });
+    fit(places);
+    if (!q) { out.innerHTML = '<p class="hint">Search for a place or an ancestor to see which Barrow groups and SNPs are recorded there.</p>'; return; }
+    if (!found.length) { out.innerHTML = `<p class="muted">No documented Barrow men found for “${esc(input.value)}”.</p>`; return; }
+    const sigs = [...new Set(found.map(m => m.sig))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    out.innerHTML = sigs.map(sig => {
+      const groups = new Map();
+      found.filter(m => m.sig === sig).forEach(m => { const s = snpOfMan(m), k = s ? s.name : '', g = groups.get(k) || { s, men: [] }; g.men.push(m); groups.set(k, g); });
+      return `<div style="margin-bottom:16px"><h4 style="margin:0 0 8px">${esc(sig)}</h4>${[...groups.values()].sort((a, b) => yr(a.s) - yr(b.s)).map(g => {
+        const began = g.s && D.men.get(g.s.formedIn);
+        return `<div style="margin:0 0 12px">${g.s ? `<span class="snp-node target">${esc(g.s.name)}</span>${began ? ` <span class="hint">formed in ${esc(nameIn(began))}${lifeOf(began) ? ' (' + esc(lifeOf(began)) + ')' : ''}</span>` : ''}` : '<span class="hint">No SNP recorded</span>'}
+          <ul style="margin:6px 0 0 18px;padding:0">${g.men.sort((a, b) => (yearNum(a.birth) || 9999) - (yearNum(b.birth) || 9999)).map(m => `<li style="margin-bottom:3px"><a href="#" data-go="lin" data-sig="${esc(m.sig)}" data-lin="${esc(m.lineage)}" data-hl="${esc(m.id)}">${esc(m.name)}</a> <span class="muted">${esc(lifeOf(m))}${m.bplace ? ' · b. ' + esc(m.bplace) : ''}${m.dplace ? ' · d. ' + esc(m.dplace) : ''} · ${esc(m.lineage)} line</span></li>`).join('')}</ul></div>`;
+      }).join('')}</div>`;
+    }).join('');
+  };
+  input.addEventListener('input', show);
+  groupBtns.forEach(b => b.addEventListener('click', () => { group = b.dataset.mapGroup; show(); }));
+  show();
+}
 function clearMaps() { liveMaps.forEach(x => { clearInterval(x.timer); x.map.remove(); }); liveMaps = []; }
-function setupMaps() { document.querySelectorAll('[data-map-kind]').forEach(buildMap); }
+function setupMaps() { document.querySelectorAll('[data-map-kind]').forEach(buildMap); document.querySelectorAll('[data-search-map]').forEach(buildSearchMap); }
 function buildMap(box) {
   if (typeof L === 'undefined') { box.innerHTML = '<p class="muted">The map needs an internet connection to load.</p>'; return; }
   const key = box.dataset.mapKey, men = box.dataset.mapKind === 'sig' ? allMen().filter(m => m.sig === key) : menOf(key);
   const d = migrationData(men), spread = snpSpread(men);
+  /* Each ancestor's line: the men of that lineage and the fathers above them, back to the earliest documented man. */
+  const tracks = [...new Set(men.map(m => m.lineage))].map(lin => {
+    const set = new Map();
+    menOf(lin).forEach(m => { for (let x = m; x && !set.has(x.id); x = D.men.get(x.father)) set.set(x.id, x); });
+    const list = [...set.values()], ids = new Set(list.map(m => m.id));
+    const events = list.flatMap(m => [[m.bplace, yearNum(m.birth), m], [m.dplace, yearNum(m.death), m]]).filter(e => e[0] && coordsOf(e[0])).map(([place, year, m]) => ({ place, year, m }));
+    return { lin, list, ids, events };
+  });
   if (!d.places.length) { box.innerHTML = '<p class="muted">No places with map positions yet. Add them to barrow-places.csv.</p>'; return; }
   const years = d.moves.map(v => v.year).concat(d.places.map(p => p.first), d.snps.map(s => yearNum(s.year))).filter(y => y != null);
   const lo = Math.min(...years), hi = Math.max(...years);
@@ -293,8 +377,7 @@ function buildMap(box) {
       <input type="range" min="${lo}" max="${hi}" value="${hi}" step="1" data-map-year style="flex:1;min-width:160px">
       <b data-map-label style="font-family:var(--serif);font-size:20px;min-width:52px;text-align:right">${hi}</b></div>
     <div class="hint" data-map-note style="min-height:20px;margin-top:6px"></div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px"><span class="hint">Show the circles of:</span>${spread.map(r => `<button class="btn small ghost" data-map-snp="${esc(r.s.name)}" style="color:var(--ink);border-color:var(--line)">${r.depth ? '<span class="muted">↳ </span>' : ''}<i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${snpColor(r.s)};margin-right:5px"></i>${esc(r.s.name)}</button>`).join('')}<button class="btn small ghost" data-map-snp="none" style="color:var(--ink);border-color:var(--line)">None</button></div>
-    <div class="gdg-key"><span><i style="background:#15303c;border-radius:50%"></i>Documented men</span></div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px"><span class="hint">Show the path of:</span>${tracks.map(t => `<button class="btn small ghost" data-map-snp="${esc(t.lin)}" style="color:var(--ink);border-color:var(--line)"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${lineColor(t.lin)};margin-right:5px"></i>${esc(t.lin)}</button>`).join('')}<button class="btn small ghost" data-map-snp="none" style="color:var(--ink);border-color:var(--line)">None</button></div>
     ${d.missing.length ? `<p class="hint" style="margin-top:8px">Not yet on the map (add to barrow-places.csv): ${d.missing.map(esc).join('; ')}</p>` : ''}`;
   const map = L.map(box.querySelector('.mig-map'), { scrollWheelZoom: false, worldCopyJump: true });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
@@ -304,38 +387,70 @@ function buildMap(box) {
   box.querySelectorAll('[data-map-view]').forEach(b => b.addEventListener('click', () => fit({ all: pts, old, new: nw }[b.dataset.mapView])));
   const slider = box.querySelector('[data-map-year]'), label = box.querySelector('[data-map-label]'), note = box.querySelector('[data-map-note]'), play = box.querySelector('[data-map-play]');
   /* One SNP's circles are shown at a time, starting with the oldest; All SNPs shows every SNP as outlines only. */
-  let pick = spread.length ? spread[0].s.name : 'none';
+  let pick = tracks.length ? tracks[0].lin : 'none';
   const live = { map, timer: null };
   liveMaps.push(live);
   /* One circle per SNP in each region its carriers reached by year Y. Older SNPs are drawn as wider rings, so where a
      newer SNP lives inside an older one, its circle sits inside the older circle in that region. */
-  const drawCircles = Y => spread.filter(r => pick === 'all' || r.s.name === pick).forEach(r => {
-    const c = snpColor(r.s), start = r.s.place && coordsOf(r.s.place), sy = yearNum(r.s.year);
-    const spots = r.events.filter(e => e.year == null || e.year <= Y).map(e => ({ ll: coordsOf(e.place), year: e.year, region: regionOf(e.place) })).filter(e => e.ll);
-    if (start && (sy == null || sy <= Y)) spots.push({ ll: start, year: sy, region: regionOf(r.s.place) });
-    const ring = pick === 'all' ? Math.max(20000, 60000 - r.depth * 15000) : 35000;
-    [...new Set(spots.map(e => e.region))].forEach(region => {
-      const group = spots.filter(e => e.region === region);
-      const lat = group.reduce((t, e) => t + e.ll[0], 0) / group.length, lng = group.reduce((t, e) => t + e.ll[1], 0) / group.length;
-      const centre = L.latLng(lat, lng), radius = Math.max(...group.map(e => centre.distanceTo(e.ll))) + ring;
-      const ys = group.map(e => e.year).filter(y => y != null), when = ys.length ? (Math.min(...ys) === Math.max(...ys) ? ` · ${Math.min(...ys)}` : ` · ${Math.min(...ys)}–${Math.max(...ys)}`) : '';
-      L.circle(centre, { radius, color: c, weight: pick === 'all' ? 1.5 : 2.5, opacity: .9, fillColor: c, fillOpacity: pick === 'all' ? 0 : .2 })
-        .bindTooltip(`<b>${esc(r.s.name)}</b> in ${esc(region)}${when}<br>Carried by the descendants of ${esc(nameIn(r.man))}`).addTo(layer);
+  let latest = null;
+  /* The chosen ancestor's line: one circle in each region its men were born or died in by year Y, a line each time the
+     family moved to a new region, and the name of each ancestor who made that move. All lines shows every line together. */
+  /* Each named ancestor is shown with the newest SNP he carried: the last SNP that formed in him or in one of his fathers. */
+  const snpOf = m => { for (let x = m; x; x = D.men.get(x.father)) if (x.snps.length) return x.snps[x.snps.length - 1].name; return ''; };
+  const nameOf = m => `${m.name}${lifeOf(m) ? ` (${lifeOf(m)})` : ''}`;
+  const drawCircles = Y => {
+    const tags = new Map();
+    const tag = (region, ll, m, year) => { const x = tags.get(region) || { ll, men: new Map() }; if (!x.men.has(m.id)) x.men.set(m.id, { m, year }); tags.set(region, x); };
+    tracks.filter(t => t.lin === pick).forEach(t => {
+      const c = lineColor(t.lin), centres = new Map();
+      const spots = t.events.filter(e => e.year == null ? Y >= hi : e.year <= Y).map(e => ({ ll: coordsOf(e.place), year: e.year, region: regionOf(e.place), m: e.m }));
+      [...new Set(spots.map(e => e.region))].forEach(region => {
+        const group = spots.filter(e => e.region === region);
+        const lat = group.reduce((n, e) => n + e.ll[0], 0) / group.length, lng = group.reduce((n, e) => n + e.ll[1], 0) / group.length;
+        const centre = L.latLng(lat, lng), radius = Math.max(...group.map(e => centre.distanceTo(e.ll))) + 35000;
+        centres.set(region, centre);
+        const ys = group.map(e => e.year).filter(y => y != null), when = ys.length ? (Math.min(...ys) === Math.max(...ys) ? ` · ${Math.min(...ys)}` : ` · ${Math.min(...ys)}–${Math.max(...ys)}`) : '';
+        L.circle(centre, { radius, color: c, weight: 2.5, opacity: .9, fillColor: c, fillOpacity: .2 })
+          .bindTooltip(`<b>${esc(t.lin)}</b> line in ${esc(region)}${when}`).addTo(layer);
+      });
+      /* The man nearest the top of the line with a recorded place is named where the line begins, from the first year it appears. */
+      const depth = m => { let d = 0; for (let x = m; x && t.ids.has(x.father); x = D.men.get(x.father)) d++; return d; };
+      const top = t.events.slice().sort((x, y) => depth(x.m) - depth(y.m))[0];
+      const start = spots.slice().sort((x, y) => (x.year == null ? 9999 : x.year) - (y.year == null ? 9999 : y.year))[0];
+      if (top && start) tag(start.region, centres.get(start.region), top.m, start.year);
+      const route = new Map();
+      t.list.forEach(m => {
+        const f = D.men.get(m.father);
+        [[f && t.ids.has(f.id) ? f.bplace : null, m.bplace, yearNum(m.birth)], [m.bplace, m.dplace, yearNum(m.death)]].forEach(([a, b, y]) => {
+          if (!a || !b || regionOf(a) === regionOf(b) || !(y == null ? Y >= hi : y <= Y)) return;
+          const k = regionOf(a) + '|' + regionOf(b), o = route.get(k) || { from: regionOf(a), to: regionOf(b), year: y, men: [] };
+          if (y != null && (o.year == null || y < o.year)) o.year = y;
+          o.men.push({ m, year: y });
+          route.set(k, o);
+        });
+      });
+      [...route.values()].filter(v => centres.has(v.from) && centres.has(v.to)).forEach(v => {
+        L.polyline([centres.get(v.from), centres.get(v.to)], { color: c, weight: 3, opacity: .85 })
+          .bindTooltip(`<b>${esc(t.lin)}</b> line moved from ${esc(v.from)} to ${esc(v.to)}${v.year != null ? ' by ' + v.year : ''}`).addTo(layer);
+        v.men.forEach(x => tag(v.to, centres.get(v.to), x.m, x.year));
+        if (v.year != null && (!latest || v.year > latest.year)) latest = { ...v, lin: t.lin };
+      });
     });
-  });
+    tags.forEach(x => {
+      /* The names are grouped under the SNP they carried, in the order they arrived. */
+      const groups = new Map();
+      [...x.men.values()].sort((p, q) => (p.year == null ? 9999 : p.year) - (q.year == null ? 9999 : q.year)).forEach(e => { const k = snpOf(e.m); groups.set(k, (groups.get(k) || []).concat(esc(nameOf(e.m)))); });
+      const names = [...groups].map(([k, list]) => (k ? `<b style="color:var(--bronze)">${esc(k)}</b><br>` : '') + list.join('<br>')).join('<br>');
+      L.marker(x.ll, { interactive: false, icon: L.divIcon({ className: '', html: `<span style="display:inline-block;white-space:nowrap;font-size:11px;line-height:1.35;padding:2px 6px;background:#fff;border:1px solid var(--line);border-radius:4px;color:var(--ink)">${names}</span>`, iconAnchor: [-10, 10] }) }).addTo(layer);
+    });
+  };
   const draw = Y => {
     layer.clearLayers();
     label.textContent = Y;
+    latest = null;
     if (pick !== 'none') drawCircles(Y);
-    d.moves.filter(v => v.year == null || v.year <= Y).forEach(v =>
-      L.polyline([coordsOf(v.from), coordsOf(v.to)], { color: '#4a5560', weight: 2, opacity: .6 })
-        .bindTooltip(`${v.year != null ? v.year + ' · ' : ''}${esc(v.note)}`).addTo(layer));
-    d.places.filter(p => p.first == null || p.first <= Y).forEach(p =>
-      L.circleMarker(coordsOf(p.place), { radius: 4 + Math.min(p.men.size, 6), color: '#ffffff', weight: 1.5, fillColor: '#15303c', fillOpacity: .95 })
-        .bindTooltip(`<b>${esc(p.place)}</b><br>First record ${p.first == null ? '—' : p.first} · ${plural(p.men.size, 'man', 'men')}`).addTo(layer));
     /* SNPs are shown by their circles, chosen with the buttons under the map, so no SNP labels are drawn on the map. */
-    const recent = d.moves.filter(v => v.year != null && v.year <= Y).sort((a, b) => b.year - a.year)[0];
-    note.textContent = recent ? `Latest move by ${Y}: ${recent.year} · ${recent.note}` : '';
+    note.textContent = latest ? `Latest move by ${Y}: the ${latest.lin} line moved from ${latest.from} to ${latest.to} by ${latest.year}` : '';
   };
   const chips = box.querySelectorAll('[data-map-snp]');
   const markChips = () => chips.forEach(b => { const on = b.dataset.mapSnp === pick; b.style.background = on ? 'var(--accent-soft)' : ''; b.style.fontWeight = on ? '700' : ''; });
@@ -378,7 +493,7 @@ function renderSearch(q) {
     </tbody></table></div></div>` : '';
   const snps = r.snps.length ? `<div class="card"><h3>SNPs (${r.snps.length})</h3>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>SNP</th><th>Formed in</th><th>Formed</th><th>Place</th></tr></thead><tbody>
-    ${r.snps.map(s => { const m = D.men.get(s.formedIn); return row(m ? go(m) : `data-go="sig" data-sig="${esc(s.sig)}"`, [`<span class="snp-node target">${esc(s.name)}</span>`, m ? esc(m.name) : '—', s.year ? 'c. ' + esc(s.year) : '—', esc(s.place) || '—']); }).join('')}
+    ${r.snps.map(s => { const m = D.men.get(s.formedIn); return row(m ? go(m) : `data-go="home"`, [`<span class="snp-node target">${esc(s.name)}</span>`, m ? esc(m.name) : '—', s.year ? 'c. ' + esc(s.year) : '—', esc(s.place) || '—']); }).join('')}
     </tbody></table></div></div>` : '';
   const lins = r.lins.length ? `<div class="card"><h3>Lineages (${r.lins.length})</h3>
     <div class="anc-cards">${r.lins.map(l => lineageCard(menOf(l)[0].sig, l)).join('')}</div></div>` : '';
@@ -707,7 +822,13 @@ function renderHome() {
     'Y-DNA passes from father to son, so it follows the surname line. Each separate Barrow family carries its own set of permanent DNA markers, called SNPs, and that set is the family’s Y-DNA signature.',
     'Barrow men with different signatures share a surname but not a paternal ancestor. Open a signature to see its lineages and how it spread. <a href="#" data-go="learn">Learn the basics</a> explains each idea step by step.'
   ])}
-  <div class="anc-cards">${cards}</div>
+  <div class="card" data-trees><h3>SNP trees</h3>
+    ${helpBox('How to read the SNP tree', [
+      'An SNP is a small, permanent change in Y-DNA. It begins in one man and is carried by all his sons, grandsons and later male-line descendants.',
+      'The oldest SNP is at the top. Each step down is a newer SNP that began in one man of a later generation. A man carries every SNP above him on his own branch. Where two branches split, the SNP just above the split is the one both lines share: it began in their common ancestor.'
+    ])}
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0"><span class="hint">Show:</span>${D.sigs.map((sig, i) => `<button class="btn small ghost" data-tree="${esc(sig)}" onclick="showTree(this)" style="color:var(--ink);border-color:var(--line)${i === 0 ? ';background:var(--accent-soft);font-weight:700' : ''}">${esc(sig)}</button>`).join('')}</div>
+    ${D.sigs.map((sig, i) => `<div data-tree-body="${esc(sig)}"${i === 0 ? '' : ' hidden'}>${SIG_SUMMARY[sig] ? `<p style="line-height:1.6;margin:0 0 12px">${esc(SIG_SUMMARY[sig])}</p>` : ''}${snpTree(sig)}</div>`).join('')}</div>
   ${D.sigs.length < 2 ? '<p class="hint" style="margin-top:12px">The second signature will appear here once its data is added.</p>' : ''}`;
 }
 function renderSig(sig) {
@@ -719,62 +840,43 @@ function renderSig(sig) {
       'A lineage is a documented line, father to son, from a known ancestor down to men living today.',
       'Each lineage shown here is confirmed by Y-DNA: at least one male descendant has tested, and his results place the line on this signature’s SNP tree. Click a lineage to see its men, its SNPs and its testers.'
     ])}
-    <div class="anc-cards">${lins.map(l => lineageCard(sig, l)).join('')}</div></div>
-  <div class="card"><h3>SNP tree</h3>
-    ${helpBox('How to read the SNP tree', [
-      'An SNP is a small, permanent change in Y-DNA. It begins in one man and is carried by all his sons, grandsons and later male-line descendants.',
-      'The oldest SNP is at the top. Each step down is a newer SNP that began in one man of a later generation. A man carries every SNP above him on his own branch. Where two branches split, the SNP just above the split is the one both lines share: it began in their common ancestor.'
-    ])}
-    ${snpTree(sig)}</div>
-  ${mapCard('sig', sig)}
-  <div class="card"><h3>Where each SNP spread</h3>
-    ${helpBox('How to read this table', [
-      'Each row is one SNP, oldest at the top. An arrow (↳) marks a newer SNP that began inside the one above it, so it is carried by only one branch of that family.',
-      '<b>Where it began</b> is the man the SNP first appeared in, and when and where. <b>Where its carriers lived</b> follows his male-line descendants, the men who carry it, region by region in the order they were recorded there, with the first and last year they appear in each. Read along a row to watch one SNP settle in a region, fill it over several generations, and then move on with the sons who left. <b>Men</b> is how many documented men carry it.',
-      'Each SNP has the same colour here as its circle on the map above. Only Y-DNA confirmed lineages are counted.'
-    ])}
-    ${spreadTable(allMen().filter(m => m.sig === sig))}</div>`;
+    </div>
+  <div class="tbl-actions"><button class="btn ghost" data-go="home">← Back to the signatures</button></div>`;
 }
 function renderLin(sig, lin) {
   const ts = testersOfLin(lin);
   return `<h1>${esc(lin)}</h1>
   <p class="muted">${esc(sig)} · ${plural(ts.length, 'tester')} · ${pill('green', 'Confirmed by Y-DNA')}</p>
   <div class="card"><h3>The documented line</h3>
-    ${helpBox('How to read this line', [
+    ${helpBox('About this lineage', [
       'This is the line father to son, with the oldest man at the top. Each man’s dates and places come from the records.',
       'A bronze SNP beside a man means that SNP began in him, so every male-line descendant of his carries it. A grey tag shows how many testers descend from that man, and their newest SNP. The testers’ results are what confirm this line by Y-DNA. Living generations and testers’ names are never shown.'
     ])}
     ${lineTree(lin)}</div>
-  ${mapCard('lin', lin)}
-  <div class="card"><h3>Where each SNP spread</h3>
-    ${helpBox('How to read this table', [
-      'Each row is one SNP this line carries, oldest at the top. An arrow (↳) marks a newer SNP that began inside the one above it.',
-      '<b>Where it began</b> is the man the SNP first appeared in, and when and where. <b>Where its carriers lived</b> follows the men of this line who carry it, region by region in the order they were recorded there, with the first and last year they appear in each. <b>Men</b> is how many documented men of this line carry it.',
-      'Each SNP has the same colour here as its circle on the map above.'
-    ])}
-    ${spreadTable(menOf(lin))}</div>`;
+  <div class="tbl-actions"><button class="btn ghost" data-go="home">← Back to Home</button></div>`;
 }
 function renderNav() {
   const on = (page, sig, lin) => view.page === page && view.sig === (sig || '') && view.lin === (lin || '') ? ' active' : '';
   return `<a data-go="home" class="${on('home')}">Home</a>
     <a data-go="find" class="${on('find')}">Find my Barrow line</a>
+    <a data-go="map" class="${on('map')}">SNP map</a>
     <a data-go="learn" class="${on('learn')}">Learn the basics</a>`;
 }
 function render() {
   clearMaps();
   const main = document.getElementById('main'), crumb = document.getElementById('crumb');
   if (view.page === 'lin') {
-    crumb.innerHTML = `<a data-go="home">Home</a> › <a data-go="sig" data-sig="${esc(view.sig)}">${esc(view.sig)}</a> › ${esc(view.lin)}`;
+    crumb.innerHTML = `<a data-go="home">Home</a> › ${esc(view.sig)} › ${esc(view.lin)}`;
     main.innerHTML = renderLin(view.sig, view.lin);
-  } else if (view.page === 'sig') {
-    crumb.innerHTML = `<a data-go="home">Home</a> › ${esc(view.sig)}`;
-    main.innerHTML = renderSig(view.sig);
   } else if (view.page === 'learn') {
     crumb.textContent = 'Learn the basics';
     main.innerHTML = renderLearn();
   } else if (view.page === 'find') {
     crumb.textContent = 'Find my Barrow line';
     main.innerHTML = renderFind();
+  } else if (view.page === 'map') {
+    crumb.textContent = 'Map';
+    main.innerHTML = `<h1>Map</h1>${searchMapCard()}`;
   } else if (view.page === 'search') {
     crumb.textContent = 'Search';
     main.innerHTML = renderSearch(view.q);
